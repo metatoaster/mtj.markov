@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 import unittest
 
+# Tested as part of integration in the engine
+# from mtj.markov.word import generate_index_word_chain
 from mtj.markov.word import normalize
 
 

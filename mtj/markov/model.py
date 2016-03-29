@@ -59,3 +59,29 @@ class Chain(Markov):
     def __init__(self, l_fragment, r_fragment):
         self.l_fragment = l_fragment
         self.r_fragment = r_fragment
+
+
+class IndexWordChain(Markov):
+    """
+    Look up word to chain.  Reason for this seemingly redundant table is
+    solely due to word allomorphs, i.e. plurals, or words with attached
+    punctuation marks within the indexed word/fragment (which this does
+    not currently handle).
+    """
+
+    __tablename__ = 'idx_word_chain'
+
+    id = Column(Integer(), primary_key=True, nullable=False)
+    word_id = Column(
+        Integer(), ForeignKey('word.id'), index=True, nullable=False)
+    chain_id = Column(
+        Integer(), ForeignKey('chain.id'), index=True, nullable=False)
+
+    word = relationship('Word', foreign_keys=word_id)
+    chain = relationship('Chain', foreign_keys=chain_id)
+
+    wc = UniqueConstraint(word_id, chain_id)
+
+    def __init__(self, chain, word):
+        self.chain = chain
+        self.word = word

@@ -11,11 +11,14 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from .utils import pair
 from .utils import unique_merge
+from .word import chain_to_words
+from .word import normalize
 
 from .model import Chain
 from .model import Fragment
 from .model import Markov
 from .model import Word
+from .model import IndexWordChain
 
 logger = getLogger(__name__)
 
@@ -79,8 +82,22 @@ class Engine(object):
             fragments = self._merge_words(words, session)
             chains = [Chain(*v) for v in pair(fragments)]
 
+            # Since the chains are guaranteed to be unique from the rest
+            # already in the table, we can just track this here.
+            table = set()
+            for chain in chains:
+                for word in chain_to_words(chain):
+                    nword = normalize(word.word)
+                    if nword == word.word:
+                        table.add((chain, word))
+                        continue
+                    # Ensure the normalized word is merged properly.
+                    table.add((chain, unique_merge(session, Word, word=nword)))
+
+            idx = [IndexWordChain(chain, word) for chain, word in table]
             try:
                 session.add_all(chains)
+                session.add_all(idx)
                 session.commit()
             except SQLAlchemyError as e:
                 session.rollback()
@@ -92,6 +109,11 @@ class Engine(object):
         except Exception as e:
             session.rollback()
             logger.exception('Unexpected error')
+        else:
+            # These chains (i.e. its id) can be used for association
+            # with metadata.
+            return chains
+        return []
 
     def generate(self, word, default=None):
         if default is not None:

@@ -3,6 +3,7 @@ import unittest
 from mtj.markov.engine import Engine
 from mtj.markov.model import Chain
 from mtj.markov.model import Fragment
+from mtj.markov.model import IndexWordChain
 from mtj.markov.model import Word
 
 
@@ -76,3 +77,18 @@ class EngineTestCase(unittest.TestCase):
         self.assertEqual(s.query(Word).count(), 7)
         self.assertEqual(s.query(Fragment).count(), 7)
         self.assertEqual(s.query(Chain).count(), 5)
+
+    def test_learn_normalize_index(self):
+        engine = self.engine
+        s = engine.session()
+
+        engine.learn(
+            'if you gaze long into an abyss, the abyss also gazes into you.')
+        self.assertEqual(s.query(Word).count(), 12)  # dup: long
+        self.assertEqual(s.query(Fragment).count(), 12)
+        self.assertEqual(s.query(Chain).count(), 11)
+        self.assertEqual(s.query(IndexWordChain).count(), 32)
+        self.assertEqual(s.query(IndexWordChain).join(Word).filter(
+            Word.word == 'you').count(), 3)
+        self.assertEqual(s.query(IndexWordChain).join(Word).filter(
+            Word.word == 'abyss').count(), 5)
