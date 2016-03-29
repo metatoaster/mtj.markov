@@ -2,6 +2,7 @@
 import unittest
 
 from mtj.markov.utils import pair
+# unique_merge is tested under normal usage.
 
 
 class PairTestCase(unittest.TestCase):

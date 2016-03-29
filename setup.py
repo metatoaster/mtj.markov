@@ -25,6 +25,7 @@ setup(name='mtj.markov',
       install_requires=[
           'setuptools',
           # -*- Extra requirements: -*-
+          'sqlalchemy',
       ],
       entry_points="""
       # -*- Entry points: -*-
