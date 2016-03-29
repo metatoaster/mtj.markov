@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from logging import getLogger
+import random
 
 from sqlalchemy import create_engine
 from sqlalchemy.schema import MetaData
@@ -31,12 +32,21 @@ class HandledError(Exception):
 
 class Engine(object):
 
-    def __init__(self, db_src='sqlite://', min_sentence_length=3):
+    _fragment_id = ('l_fragment', 'r_fragment')
+    _word_id = ('l_word', 'r_word')
+
+    def __init__(self, db_src='sqlite://',
+                 min_sentence_length=3,
+                 max_chain_distance=50,
+                 ):
         self.db_src = db_src
         # Need a minimum of 3 words per sentence to build a chain.
         # If single/double word sentences are desired, the code will
         # need to support generation of empty placeholder words.
         self.min_sentence_length = max(3, min_sentence_length)
+
+        # maximum distance from starting chain for output.
+        self.max_chain_distance = max_chain_distance
 
     def initialize(self, **kw):
         if hasattr(self, 'engine'):
@@ -115,7 +125,55 @@ class Engine(object):
             return chains
         return []
 
+    def follow_chain(self, target, direction, session):
+        # Alternatively, apply the equation -(i+1), where i are the
+        # indexes for self._fragment_id
+
+        # find LHS
+        # session.query(Chain).filter(
+        #     Chain.r_fragment == target.chain.l_fragment)[0]
+        # # find RHS
+        # session.query(Chain).filter(
+        #     Chain.l_fragment == target.chain.r_fragment)[0]
+
+        if direction:  # towards right
+            sf, tf = self._fragment_id
+            sw, tw = self._word_id
+        else:  # towards left
+            tf, sf = self._fragment_id
+            tw, sw = self._word_id
+
+        result = []
+        for c in range(self.max_chain_distance):
+            result.append(getattr(getattr(target, tf), tw).word)
+            choices = session.query(Chain).filter(
+                getattr(Chain, sf) == getattr(target, tf)).all()
+            if not choices:
+                break
+            target = random.choice(choices)
+
+        if not direction:
+            return list(reversed(result))
+        return result
+
     def generate(self, word, default=None):
-        if default is not None:
-            return default
-        raise KeyError('no such word in chains')
+        normalize(word)
+        session = self.session()
+        idx = session.query(IndexWordChain).join(Word).filter(
+            Word.word == normalize(word)).all()
+
+        if not idx:
+            if default is not None:
+                return default
+            raise KeyError('no such word in chains')
+
+        # pick a chain
+        target = random.choice(idx).chain
+
+        lhs = self.follow_chain(target, False, session)
+        # should be same as chain.r_fragment.l_word.word
+        c = [target.l_fragment.r_word.word]
+        rhs = self.follow_chain(target, True, session)
+
+        result = lhs + c + rhs
+        return ' '.join(result)

@@ -92,3 +92,22 @@ class EngineTestCase(unittest.TestCase):
             Word.word == 'you').count(), 3)
         self.assertEqual(s.query(IndexWordChain).join(Word).filter(
             Word.word == 'abyss').count(), 5)
+
+    def test_basic_generate(self):
+        engine = self.engine
+        engine.learn('how are you doing')
+
+        chain = engine.generate('you')
+        self.assertEqual(chain, 'how are you doing')
+
+    def test_generate_sentence_clean(self):
+        engine = self.engine
+        engine.learn('how is this a problem')
+        engine.learn('what is a carrier')
+
+        # generate 100 chains
+        chains = set(engine.generate('a', default='') for i in range(100))
+
+        # only two unique sentences should be generated, cannot generate
+        # e.g. 'how is this a carrier' ('this a carrier' not a chain)
+        self.assertTrue(0 < len(chains) <= 2)
