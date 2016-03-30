@@ -125,12 +125,17 @@ class Engine(object):
         return []
 
     def follow_chain(self, target, direction, session):
-        # pick source to target
-        if direction == 'r':  # towards right
-            s, t = 'lr'
-        elif direction == 'l':  # towards left
-            s, t = 'rl'
+        """
+        Follow the chain
 
+        direction, either
+        - 'lr', left to right
+        - 'rl', right to left
+        """
+
+        # split direction to target and source.
+        s, t = direction
+        # build identifiers
         s_f_id, t_f_id = s + _f_id, t + _f_id
         tw = t + _word
 
@@ -149,7 +154,7 @@ class Engine(object):
                 Fragment.id==target).first()[0]
             result.append(word)
 
-        if direction == 'l':
+        if t == 'l':  # if target is towards left, reverse
             return list(reversed(result))
         return result
 
@@ -167,9 +172,9 @@ class Engine(object):
         # pick a chain
         target = random.choice(idx).chain
 
-        lhs = self.follow_chain(target, 'l', session)
+        lhs = self.follow_chain(target, 'rl', session)
         c = [i.word for i in chain_to_words(target)]
-        rhs = self.follow_chain(target, 'r', session)
+        rhs = self.follow_chain(target, 'lr', session)
 
         result = lhs + c + rhs
         return ' '.join(result)
