@@ -145,12 +145,13 @@ class Engine(object):
 
         result = []
         for c in range(self.max_chain_distance):
-            result.append(getattr(getattr(target, tf), tw).word)
             choices = session.query(Chain).filter(
                 getattr(Chain, sf) == getattr(target, tf)).all()
             if not choices:
                 break
             target = random.choice(choices)
+
+            result.append(getattr(getattr(target, tf), tw).word)
 
         if not direction:
             return list(reversed(result))
@@ -171,8 +172,7 @@ class Engine(object):
         target = random.choice(idx).chain
 
         lhs = self.follow_chain(target, False, session)
-        # should be same as chain.r_fragment.l_word.word
-        c = [target.l_fragment.r_word.word]
+        c = [i.word for i in chain_to_words(target)]
         rhs = self.follow_chain(target, True, session)
 
         result = lhs + c + rhs
