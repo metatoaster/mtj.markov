@@ -22,6 +22,8 @@ from .model import Word
 from .model import IndexWordChain
 
 logger = getLogger(__name__)
+_f_id = '_f_id'
+_word = '_word'
 
 
 class HandledError(Exception):
@@ -31,9 +33,6 @@ class HandledError(Exception):
 
 
 class Engine(object):
-
-    _fragment_id = ('l_fragment', 'r_fragment')
-    _word_id = ('l_word', 'r_word')
 
     def __init__(self, db_src='sqlite://',
                  min_sentence_length=3,
@@ -126,42 +125,31 @@ class Engine(object):
         return []
 
     def follow_chain(self, target, direction, session):
-        # Alternatively, apply the equation -(i+1), where i are the
-        # indexes for self._fragment_id
+        # pick source to target
+        if direction == 'r':  # towards right
+            s, t = 'lr'
+        elif direction == 'l':  # towards left
+            s, t = 'rl'
 
-        # find LHS
-        # session.query(Chain).filter(
-        #     Chain.r_fragment == target.chain.l_fragment)[0]
-        # # find RHS
-        # session.query(Chain).filter(
-        #     Chain.l_fragment == target.chain.r_fragment)[0]
+        s_f_id, t_f_id = s + _f_id, t + _f_id
+        tw = t + _word
 
-        if direction:  # towards right
-            sf, tf = self._fragment_id
-            sw, tw = self._word_id
-        else:  # towards left
-            tf, sf = self._fragment_id
-            tw, sw = self._word_id
+        target = getattr(target, t_f_id)
 
         result = []
         for c in range(self.max_chain_distance):
-            choices = session.query(Chain).filter(
-                getattr(Chain, sf) == getattr(target, tf)).all()
+            choices = session.query(getattr(Chain, t_f_id)).filter(
+                getattr(Chain, s_f_id) == target).all()
             if not choices:
                 break
-            target = random.choice(choices)
 
-            # naive way will invoke two selects
-            # result.append(getattr(getattr(target, tf), tw).word)
-
-            # single select join may end up taking longer.
-            word = session.query(Word.word).select_from(Chain).join(
-                getattr(Chain, tf), getattr(Fragment, tw)).filter(
-                Chain.id==target.id).first()[0]
-
+            target = random.choice(choices)[0]
+            word = session.query(Word.word).select_from(Fragment).join(
+                getattr(Fragment, tw)).filter(
+                Fragment.id==target).first()[0]
             result.append(word)
 
-        if not direction:
+        if direction == 'l':
             return list(reversed(result))
         return result
 
@@ -179,9 +167,9 @@ class Engine(object):
         # pick a chain
         target = random.choice(idx).chain
 
-        lhs = self.follow_chain(target, False, session)
+        lhs = self.follow_chain(target, 'l', session)
         c = [i.word for i in chain_to_words(target)]
-        rhs = self.follow_chain(target, True, session)
+        rhs = self.follow_chain(target, 'r', session)
 
         result = lhs + c + rhs
         return ' '.join(result)
