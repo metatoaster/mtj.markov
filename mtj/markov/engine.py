@@ -84,43 +84,43 @@ class Engine(object):
             session, Fragment, l_word=lw, r_word=rw) for lw, rw in pair(words)]
         return fragments
 
+    def _learn(self, sentence, session):
+        words = self._merge_sentence(sentence, session)
+        fragments = self._merge_words(words, session)
+        chains = [Chain(*v) for v in pair(fragments)]
+
+        # Since the chains are guaranteed to be unique from the rest
+        # already in the table, we can just track this here.
+        table = set()
+        for chain in chains:
+            for word in chain_to_words(chain):
+                nword = normalize(word.word)
+                if nword == word.word:
+                    table.add((chain, word))
+                    continue
+                # Ensure the normalized word is merged properly.
+                table.add((chain, unique_merge(session, Word, word=nword)))
+
+        idx = [IndexWordChain(chain, word) for chain, word in table]
+        session.add_all(chains)
+        session.add_all(idx)
+
     def learn(self, sentence):
         session = self.session()
         try:
-            words = self._merge_sentence(sentence, session)
-            fragments = self._merge_words(words, session)
-            chains = [Chain(*v) for v in pair(fragments)]
-
-            # Since the chains are guaranteed to be unique from the rest
-            # already in the table, we can just track this here.
-            table = set()
-            for chain in chains:
-                for word in chain_to_words(chain):
-                    nword = normalize(word.word)
-                    if nword == word.word:
-                        table.add((chain, word))
-                        continue
-                    # Ensure the normalized word is merged properly.
-                    table.add((chain, unique_merge(session, Word, word=nword)))
-
-            idx = [IndexWordChain(chain, word) for chain, word in table]
-            try:
-                session.add_all(chains)
-                session.add_all(idx)
-                session.commit()
-            except SQLAlchemyError as e:
-                session.rollback()
-                logger.exception(
-                    'SQLAlchemy Error while learning: %s', sentence)
+            chains = self._learn(sentence, session)
         except HandledError as e:
             # Should have been dealt with.
             pass
+        except SQLAlchemyError as e:
+            logger.exception(
+                'SQLAlchemy Error while learning: %s', sentence)
         except Exception as e:
-            session.rollback()
             logger.exception('Unexpected error')
         else:
             # These chains (i.e. its id) can be used for association
             # with metadata.
+            session.commit()
             return chains
         return []
 
