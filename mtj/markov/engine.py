@@ -151,7 +151,15 @@ class Engine(object):
                 break
             target = random.choice(choices)
 
-            result.append(getattr(getattr(target, tf), tw).word)
+            # naive way will invoke two selects
+            # result.append(getattr(getattr(target, tf), tw).word)
+
+            # single select join may end up taking longer.
+            word = session.query(Word.word).select_from(Chain).join(
+                getattr(Chain, tf), getattr(Fragment, tw)).filter(
+                Chain.id==target.id).first()[0]
+
+            result.append(word)
 
         if not direction:
             return list(reversed(result))
