@@ -37,15 +37,12 @@ class HandledError(Exception):
 class Engine(object):
 
     def __init__(self, db_src='sqlite://',
-                 min_sentence_length=3,
+                 min_sentence_length=1,
                  max_chain_distance=50,
                  ):
         self.db_src = db_src
-        # Need a minimum of 3 words per sentence to build a chain.
-        # If single/double word sentences are desired, the code will
-        # need to support generation of empty placeholder words.
-        self.min_sentence_length = max(3, min_sentence_length)
 
+        self.min_sentence_length = min_sentence_length
         # maximum distance from starting chain for output.
         self.max_chain_distance = max_chain_distance
 
@@ -62,16 +59,13 @@ class Engine(object):
         return self._sessions()
 
     def _merge_sentence(self, sentence, session):
-        words = sentence.split()
-        # if we want to support single or double word sentences, pad the
-        # above to at least 3 items (i.e. append 1 or 2 empty strings).
-        # no idea what the effects may be.
-        if len(words) < self.min_sentence_length:
+        source = sentence.split()
+        if len(source) < self.min_sentence_length:
             return []
+        words = [''] + source + ['']
 
         try:
-            words = [unique_merge(
-                session, Word, word=word) for word in words]
+            words = [unique_merge(session, Word, word=word) for word in words]
         except DataError as e:
             # most likely due to invalid data types.
             session.rollback()
@@ -179,4 +173,4 @@ class Engine(object):
         rhs = self.follow_chain(target, 'lr', session)
 
         result = lhs + c + rhs
-        return ' '.join(result)
+        return ' '.join(result).strip()
