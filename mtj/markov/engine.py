@@ -15,11 +15,13 @@ from .utils import unique_merge
 from .word import chain_to_words
 from .word import normalize
 
-from .model import Chain
-from .model import Fragment
+# XXX fix this (by moving code depending on that below)
+from .model.normal import Chain
+from .model.normal import Fragment
+from .model.normal import Word
+from .model.normal import IndexWordChain
+
 from .model import Markov
-from .model import Word
-from .model import IndexWordChain
 
 logger = getLogger(__name__)
 _f_id = '_f_id'

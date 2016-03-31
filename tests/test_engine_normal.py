@@ -1,10 +1,10 @@
 import unittest
 
 from mtj.markov.engine import Engine
-from mtj.markov.model import Chain
-from mtj.markov.model import Fragment
-from mtj.markov.model import IndexWordChain
-from mtj.markov.model import Word
+from mtj.markov.model.normal import Chain
+from mtj.markov.model.normal import Fragment
+from mtj.markov.model.normal import IndexWordChain
+from mtj.markov.model.normal import Word
 
 
 class EngineTestCase(unittest.TestCase):

@@ -1,23 +1,16 @@
 # -*- coding: utf-8 -*-
-from sqlalchemy import create_engine
 from sqlalchemy.orm import relationship
-from sqlalchemy.orm import backref
-from sqlalchemy.sql import func
-from sqlalchemy.sql import select
-from sqlalchemy.schema import MetaData
 from sqlalchemy.schema import ForeignKey
-from sqlalchemy.schema import Table
 from sqlalchemy.schema import Column
-from sqlalchemy.schema import Index
 from sqlalchemy.schema import UniqueConstraint
 from sqlalchemy.types import Integer
 from sqlalchemy.types import String
 from sqlalchemy.ext.declarative import declarative_base
 
-Markov = declarative_base()
+Base = declarative_base(name='MarkovNormal')
 
 
-class Word(Markov):
+class Word(Base):
     __tablename__ = 'word'
 
     id = Column(Integer(), primary_key=True, nullable=False)
@@ -27,7 +20,7 @@ class Word(Markov):
         self.word = word
 
 
-class Fragment(Markov):
+class Fragment(Base):
     __tablename__ = 'fragment'
 
     id = Column('id', Integer(), primary_key=True, nullable=False)
@@ -45,7 +38,7 @@ class Fragment(Markov):
         self.r_word = r_word
 
 
-class Chain(Markov):
+class Chain(Base):
     __tablename__ = 'chain'
 
     id = Column(Integer(), primary_key=True, nullable=False)
@@ -61,7 +54,7 @@ class Chain(Markov):
         self.r_fragment = r_fragment
 
 
-class IndexWordChain(Markov):
+class IndexWordChain(Base):
     """
     Look up word to chain.  Reason for this seemingly redundant table is
     solely due to word allomorphs, i.e. plurals, or words with attached
