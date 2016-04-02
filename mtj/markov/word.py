@@ -7,15 +7,6 @@ has_word_char = re.compile('\w')
 punctuation_strip = re.compile('^\\W*(.+?)\\W*$')
 
 
-def chain_to_words(chain):
-    # return all words within the chain.
-    return (
-        chain.l_fragment.l_word,
-        chain.l_fragment.r_word,
-        chain.r_fragment.r_word,
-    )
-
-
 def normalize(word):
     """
     Right now only do the most basic things

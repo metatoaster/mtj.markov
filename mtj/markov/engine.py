@@ -10,18 +10,16 @@ from sqlalchemy.exc import DataError
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.exc import SQLAlchemyError
 
-from .utils import pair
-from .utils import unique_merge
-from .word import chain_to_words
 from .word import normalize
+
+from .model import normal
 
 # XXX fix this (by moving code depending on that below)
 from .model.normal import Chain
 from .model.normal import Fragment
 from .model.normal import Word
 from .model.normal import IndexWordChain
-
-from .model import Markov
+from .model.normal import StateGraph
 
 logger = getLogger(__name__)
 _f_id = '_f_id'
@@ -34,17 +32,19 @@ class HandledError(Exception):
     """
 
 
-class Engine(object):
+class Engine(StateGraph):
 
     def __init__(self, db_src='sqlite://',
                  min_sentence_length=1,
                  max_chain_distance=50,
+                 model_module=normal,
                  ):
         self.db_src = db_src
 
         self.min_sentence_length = min_sentence_length
         # maximum distance from starting chain for output.
         self.max_chain_distance = max_chain_distance
+        self.model_module = model_module
 
     def initialize(self, **kw):
         if hasattr(self, 'engine'):
@@ -52,54 +52,18 @@ class Engine(object):
             return
 
         self.engine = create_engine(self.db_src, **kw)
-        Markov.metadata.create_all(self.engine)
+        self.model_module.Base.metadata.create_all(self.engine)
         self._sessions = scoped_session(sessionmaker(bind=self.engine))
 
     def session(self):
         return self._sessions()
 
-    def _merge_sentence(self, sentence, session):
+    def _learn(self, sentence, session):
         source = sentence.split()
         if len(source) < self.min_sentence_length:
             return []
         words = [''] + source + ['']
-
-        try:
-            words = [unique_merge(session, Word, word=word) for word in words]
-        except DataError as e:
-            # most likely due to invalid data types.
-            session.rollback()
-            logger.exception('Failed to learn this sentence: %s', sentence)
-            raise HandledError
-        else:
-            return words
-        return []
-
-    def _merge_words(self, words, session):
-        fragments = [unique_merge(
-            session, Fragment, l_word=lw, r_word=rw) for lw, rw in pair(words)]
-        return fragments
-
-    def _learn(self, sentence, session):
-        words = self._merge_sentence(sentence, session)
-        fragments = self._merge_words(words, session)
-        chains = [Chain(*v) for v in pair(fragments)]
-
-        # Since the chains are guaranteed to be unique from the rest
-        # already in the table, we can just track this here.
-        table = set()
-        for chain in chains:
-            for word in chain_to_words(chain):
-                nword = normalize(word.word)
-                if nword == word.word:
-                    table.add((chain, word))
-                    continue
-                # Ensure the normalized word is merged properly.
-                table.add((chain, unique_merge(session, Word, word=nword)))
-
-        idx = [IndexWordChain(chain, word) for chain, word in table]
-        session.add_all(chains)
-        session.add_all(idx)
+        self._merge_all(words, session)
 
     def learn(self, sentence):
         session = self.session()
@@ -154,23 +118,29 @@ class Engine(object):
             return list(reversed(result))
         return result
 
-    def generate(self, word, default=None):
-        normalize(word)
-        session = self.session()
+    def _pick_entry_point(self, word, session):
         idx = session.query(IndexWordChain).join(Word).filter(
             Word.word == normalize(word)).all()
 
         if not idx:
-            if default is not None:
-                return default
             raise KeyError('no such word in chains')
 
-        # pick a chain
-        target = random.choice(idx).chain
+        return random.choice(idx).chain
 
-        lhs = self.follow_chain(target, 'rl', session)
-        c = [i.word for i in chain_to_words(target)]
-        rhs = self.follow_chain(target, 'lr', session)
+    def generate(self, word, default=None):
+        normalize(word)
+        session = self.session()
+
+        try:
+            entry_point = self._pick_entry_point(word, session)
+        except KeyError:
+            if default is not None:
+                return default
+            raise
+
+        lhs = self.follow_chain(entry_point, 'rl', session)
+        c = [i.word for i in entry_point.to_words()]
+        rhs = self.follow_chain(entry_point, 'lr', session)
 
         result = lhs + c + rhs
         return ' '.join(result).strip()
