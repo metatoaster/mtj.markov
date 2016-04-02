@@ -1,6 +1,6 @@
 import unittest
 
-from mtj.markov.engine import Engine
+from mtj.markov.model.normal import Engine
 from mtj.markov.model.normal import Chain
 from mtj.markov.model.normal import Fragment
 from mtj.markov.model.normal import IndexWordChain
@@ -106,6 +106,9 @@ class EngineUsageTestCase(unittest.TestCase):
 
         chain = engine.generate('you')
         self.assertEqual(chain, 'how are you doing')
+
+        # XXX not used... figure out how.
+        engine.learn('are you doing well')
 
     def test_basic_generate_long(self):
         engine = self.engine
