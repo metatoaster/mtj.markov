@@ -4,6 +4,7 @@ from time import time
 import random
 
 from sqlalchemy import create_engine
+from sqlalchemy import func
 from sqlalchemy.schema import MetaData
 from sqlalchemy.orm import scoped_session
 from sqlalchemy.orm import sessionmaker
@@ -239,16 +240,18 @@ class WordGraph(base.StateGraph):
             Word.id.in_(word_ids)).all())
 
     def _pick_entry_point(self, word, session):
-        # XXX note above.
-        query = session.query(IndexWordFragment).join(Word).filter(
+        # XXX note pick_state_transition
+        query = lambda p: session.query(p).select_from(
+            IndexWordFragment).join(Word).filter(
             Word.word == self.normalize(word))
 
-        count = query.count()
+        count = query(func.count()).one()[0]
 
         if not count:
             raise KeyError('no such word in chains')
 
-        fragment = query.offset(int(random.random() * count)).first()
+        fragment = query(IndexWordFragment).offset(
+            int(random.random() * count)).first()
         return fragment.fragment
 
     def follow_chain(self, fragment, direction, session=None):
@@ -272,15 +275,16 @@ class WordGraph(base.StateGraph):
 
         result = []
         for c in range(self.max_chain_distance):
-            query = session.query(Fragment).filter(
+            query = lambda p: session.query(p).select_from(Fragment).filter(
                 (Fragment.word_id == getattr(fragment, t_word_id)) &
                 (getattr(Fragment, s_word_id) == fragment.word_id))
+            count = query(func.count()).one()[0]
 
-            count = query.count()
             if not count:
                 break
 
-            fragment = query.offset(int(random.random() * count)).first()
+            fragment = query(Fragment).offset(
+                int(random.random() * count)).first()
             result.append(getattr(fragment, t_word_id))
 
         if t == 'l':  # if target is towards left, reverse
