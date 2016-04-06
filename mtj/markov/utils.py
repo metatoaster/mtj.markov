@@ -1,19 +1,20 @@
 # -*- coding: utf-8 -*-
 
 
-def pair(items):
+def nchain(count, items):
     """
-    Generator that generates pairs of preceding and subsequent items for
-    the given iterable.
+    Return a generator that generates pairs of preceding and subsequent
+    items for the given iterable.
     """
 
-    if len(items) < 2:
+    if len(items) < count:
         return []
-    result = []
-    previous = items[0]
-    for item in items[1:]:
-        yield previous, item
-        previous = item
+    idx = count - 1
+    return (tuple(items[c:c + count]) for c, item in enumerate(items[:-idx]))
+
+
+def pair(items):
+    return nchain(2, items)
 
 
 def unique_merge(session, model, **kw):
