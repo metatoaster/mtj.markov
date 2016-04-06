@@ -52,21 +52,41 @@ class StateTransition(object):
 
 class StateGraph(object):
     """
-    An abstract description that represents the engine that can generate
-    a markov chain.
+    A description containing all state transitions and states for the
+    generation of a markov chain.
     """
 
-    def __init__(self, engine):
+    def __init__(self, *a, **kw):
         """
-        engine - The engine that will run through this StateGraph.
+        Initialize the graph - it can contain parameters such as
+        restrictions to what constitutes as valid input for the learning
+        method, etc.
         """
 
-        self.engine = engine
+        raise NotImplementedError
 
-    def merge(self, *a, **kw):
+    def initialize(self, *a, **kw):
         """
-        Take the provided raw arguments and merge them into this graph
-        as StateTransition objets and associated State objects.
+        The actual initialization method.  Attributes relating to
+        location of the persistent store for the rules and other related
+        attributes should be initialized here.
+        """
+
+        raise NotImplementedError
+
+    def learn(self, *a, **kw):
+        """
+        Turn the arguments into State and StateTransition objects and
+        merge them into this StateGraph.
+        """
+
+        raise NotImplementedError
+
+    def merge(self, state_transitions):
+        """
+        Merge the list of StateTransition objects and its associated
+        State objects (defined within its relationships) into this
+        graph.
         """
 
         raise NotImplementedError
