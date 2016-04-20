@@ -219,16 +219,7 @@ class WordGraph(base.StateGraph):
             return fragments
         return []
 
-    def pick_state_transition(self, *a, **kw):
-        """
-        Return a state_transition based on arguments.  Return value must
-        be a StateTransition type, that can serve as the starting
-        value for the generate method.
-        """
-
-        raise NotImplementedError
-
-    def lookup_word_ids(self, word_ids, session=None):
+    def lookup_words_by_ids(self, word_ids, session=None):
         """
         Return all words associated with the list of word_ids
         """
@@ -239,7 +230,13 @@ class WordGraph(base.StateGraph):
         return dict(session.query(Word.id, Word.word).filter(
             Word.id.in_(word_ids)).all())
 
-    def _pick_entry_point(self, word, session):
+    def pick_state_transition(self, word, session):
+        """
+        Return a state_transition based on arguments.  Return value must
+        be a StateTransition type, that can serve as the starting
+        value for the generate method.
+        """
+
         # XXX note pick_state_transition
         query = lambda p: session.query(p).select_from(
             IndexWordFragment).join(Word).filter(
@@ -298,7 +295,7 @@ class WordGraph(base.StateGraph):
         session = self._sessions()
 
         try:
-            entry_point = self._pick_entry_point(word, session)
+            entry_point = self.pick_state_transition(word, session)
         except KeyError:
             if default is not None:
                 return default
@@ -309,5 +306,5 @@ class WordGraph(base.StateGraph):
         rhs = self.follow_chain(entry_point, 'lr', session)
 
         word_ids = lhs + c + rhs
-        words = self.lookup_word_ids(word_ids, session)
+        words = self.lookup_words_by_ids(word_ids, session)
         return ' '.join(words[word_id] for word_id in word_ids).strip()
