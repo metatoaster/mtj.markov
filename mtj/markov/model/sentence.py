@@ -157,12 +157,17 @@ class WordGraph(base.StateGraph):
         generation.
         """
 
-        results = {}
+        # grab all of them with a single in statement.
+        results = self.lookup_words_by_words(
+            (set([normalize(w) for w in words] + words)),
+            session)
 
         def merge(word):
             if word in results:
                 return
-            results[word] = unique_merge(session, Word, word=word)
+            # hopefully these are unique.
+            # results[word] = unique_merge(session, Word, word=word)
+            results[word] = session.merge(Word(word=word))
 
         for word in words:
             merge(word)
@@ -229,6 +234,17 @@ class WordGraph(base.StateGraph):
 
         return dict(session.query(Word.id, Word.word).filter(
             Word.id.in_(word_ids)).all())
+
+    def lookup_words_by_words(self, words, session=None):
+        """
+        Return all Words associated with the list of words
+        """
+
+        if session is None:
+            session = self._sessions()
+
+        return {w.word: w for w in session.query(Word).filter(
+            Word.word.in_(words)).all()}
 
     def pick_state_transition(self, word, session):
         """
