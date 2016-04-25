@@ -24,7 +24,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from ..utils import unique_merge
 from ..utils import nchain
 from ..word import normalize
-from ..exc import HandledError
+# from ..exc import HandledError
 from . import base
 
 Base = declarative_base(name='Text')
@@ -207,11 +207,14 @@ class WordGraph(base.StateGraph):
         self._merge_states(words, timestamp=timestamp, session=session)
 
     def learn(self, sentence):
-        session = self._sessions()
         try:
+            session = self._sessions()
             fragments = self._learn(sentence, session=session)
-        except HandledError as e:
-            logger.error('Failed to learn sentence: %s', sentence)
+        # Originally planned for handling individual word errors, but
+        # given this is only triggered for more strict RDBMS and also
+        # that the exception is only raised on commit, skip for now.
+        # except HandledError as e:
+        #     logger.error('Failed to learn sentence: %s', sentence)
         except SQLAlchemyError as e:
             logger.exception(
                 'SQLAlchemy Error while learning: %s', sentence)
@@ -277,7 +280,7 @@ class WordGraph(base.StateGraph):
         - 'rl', right to left
         """
 
-        if session is None:
+        if session is None:  # pragma: no cover
             session = self._sessions()
 
         # split direction to target and source.

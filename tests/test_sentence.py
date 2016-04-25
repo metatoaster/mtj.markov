@@ -13,6 +13,25 @@ class SentenceTestCase(unittest.TestCase):
         self.engine = WordGraph()
         self.engine.initialize()
 
+    def test_lookup_words_by_ids(self):
+        engine = self.engine
+        engine.learn('hello this beautiful world.')
+
+        words = engine.lookup_words_by_ids([4, 5, 6, 7])
+
+        # empty string plus "world", or normalized form of "world.".
+        self.assertEqual(sorted(words.keys()), [4, 5, 6])
+
+    def test_lookup_words_by_words(self):
+        engine = self.engine
+        engine.learn('hello this beautiful world.')
+
+        words = engine.lookup_words_by_words(
+            ['hello', 'this', 'strange', 'world'])
+
+        # `world.` should have been normalized to `world`.
+        self.assertEqual(sorted(words.keys()), ['hello', 'this', 'world'])
+
     def test_learn_results(self):
         engine = self.engine
         s = self.engine._sessions()
@@ -26,6 +45,46 @@ class SentenceTestCase(unittest.TestCase):
             Word.word == 'you').count(), 2)
         self.assertEqual(s.query(IndexWordFragment).join(Word).filter(
             Word.word == 'abyss').count(), 2)
+
+    def test_learn_failure_sql(self):
+        engine = self.engine
+        # force a failure of some kind.
+        s = self.engine._sessions()
+        s.execute('DROP TABLE `word`')
+        engine.learn('this cannot be learned.')
+
+    def test_learn_failure_logic(self):
+        engine = self.engine
+        # force a programming error of some kind.
+        del self.engine._sessions
+        engine.learn('this cannot be learned.')
+
+    def test_learn_raw(self):
+        engine = self.engine
+        session = self.engine._sessions()
+        engine._learn('this cannot be learned.')
+        session.commit()
+        chain = engine.generate('this')
+        self.assertEqual(chain, 'this cannot be learned.')
+
+    def test_learn_restricted(self):
+        engine = self.engine
+        engine.min_sentence_length = 3
+        result = engine.learn('hello world')
+        self.assertEqual(len(result), 0)
+        with self.assertRaises(KeyError):
+            result = engine.generate('hi')
+
+    def test_null_generate(self):
+        engine = self.engine
+        with self.assertRaises(KeyError):
+            result = engine.generate('hi')
+
+    def test_null_generate_default(self):
+        engine = self.engine
+        _marker = object()
+        result = engine.generate('hi', _marker)
+        self.assertIs(result, _marker)
 
     def test_basic_generate(self):
         engine = self.engine
