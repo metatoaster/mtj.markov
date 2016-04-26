@@ -1,13 +1,11 @@
 # -*- coding: utf-8 -*-
-import random
+from random import random
 
+from sqlalchemy import func
 from sqlalchemy import create_engine
 from sqlalchemy.schema import MetaData
 from sqlalchemy.orm import scoped_session
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.exc import DataError
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import relationship
 from sqlalchemy.schema import ForeignKey
 from sqlalchemy.schema import Column
@@ -15,7 +13,10 @@ from sqlalchemy.schema import UniqueConstraint
 from sqlalchemy.types import Integer
 from sqlalchemy.types import String
 from sqlalchemy.ext.declarative import declarative_base
+
 from sqlalchemy.exc import DataError
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import SQLAlchemyError
 
 from ..utils import unique_merge
 from ..utils import pair
@@ -148,13 +149,17 @@ class StateGraph(base.StateGraph):
         session.add_all(idx)
 
     def _pick_entry_point(self, word, session):
-        idx = session.query(IndexWordChain).join(Word).filter(
-            Word.word == normalize(word)).all()
+        query = lambda p: session.query(p).select_from(
+            IndexWordChain).join(Word).filter(
+            Word.word == self.normalize(word))
+        count = query(func.count()).one()[0]
 
-        if not idx:
+        if not count:
             raise KeyError('no such word in chains')
 
-        return random.choice(idx).chain
+        chain = query(IndexWordChain).offset(
+            int(random() * count)).first()
+        return chain.chain
 
 
 class HandledError(Exception):
@@ -234,12 +239,15 @@ class Engine(StateGraph):
 
         result = []
         for c in range(self.max_chain_distance):
-            choices = session.query(getattr(Chain, t_f_id)).filter(
-                getattr(Chain, s_f_id) == target).all()
-            if not choices:
+            query = lambda p: session.query(p).select_from(Chain).filter(
+                getattr(Chain, s_f_id) == target)
+            count = query(func.count()).one()[0]
+
+            if not count:
                 break
 
-            target = random.choice(choices)[0]
+            target = query(getattr(Chain, t_f_id)).offset(
+                int(random() * count)).first()[0]
             word = session.query(Word.word).select_from(Fragment).join(
                 getattr(Fragment, tw)).filter(
                 Fragment.id==target).first()[0]
@@ -250,13 +258,17 @@ class Engine(StateGraph):
         return result
 
     def _pick_entry_point(self, word, session):
-        idx = session.query(IndexWordChain).join(Word).filter(
-            Word.word == normalize(word)).all()
+        query = lambda p: session.query(p).select_from(
+            IndexWordChain).join(Word).filter(
+            Word.word == normalize(word))
+        count = query(func.count()).one()[0]
 
-        if not idx:
+        if not count:
             raise KeyError('no such word in chains')
 
-        return random.choice(idx).chain
+        chain = query(IndexWordChain).offset(
+            int(random() * count)).first()
+        return chain.chain
 
     def generate(self, word, default=None):
         normalize(word)
