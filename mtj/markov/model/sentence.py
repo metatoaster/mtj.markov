@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 from logging import getLogger
 from time import time
-import random
+from random import random
 
 from sqlalchemy import create_engine
 from sqlalchemy import func
@@ -267,7 +267,7 @@ class WordGraph(base.StateGraph):
             raise KeyError('no such word in chains')
 
         fragment = query(IndexWordFragment).offset(
-            int(random.random() * count)).first()
+            int(random() * count)).first()
         return fragment.fragment
 
     def follow_chain(self, fragment, direction, session=None):
@@ -300,7 +300,7 @@ class WordGraph(base.StateGraph):
                 break
 
             fragment = query(Fragment).offset(
-                int(random.random() * count)).first()
+                int(random() * count)).first()
             result.append(getattr(fragment, t_word_id))
 
         if t == 'l':  # if target is towards left, reverse
