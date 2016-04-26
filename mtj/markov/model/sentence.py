@@ -270,6 +270,15 @@ class WordGraph(base.StateGraph):
             int(random() * count)).first()
         return fragment.fragment
 
+    def _query_chain(self, fragment, s_word_id, t_word_id, session):
+        query = lambda p: session.query(p).select_from(Fragment).filter(
+            (Fragment.word_id == getattr(fragment, t_word_id)) &
+            (getattr(Fragment, s_word_id) == fragment.word_id))
+        count = query(func.count()).one()[0]
+        if not count:
+            return None
+        return query(Fragment).offset(int(random() * count)).first()
+
     def follow_chain(self, fragment, direction, session=None):
         """
         Follow the fragments for the list of word ids that will make a
@@ -291,16 +300,10 @@ class WordGraph(base.StateGraph):
 
         result = []
         for c in range(self.max_chain_distance):
-            query = lambda p: session.query(p).select_from(Fragment).filter(
-                (Fragment.word_id == getattr(fragment, t_word_id)) &
-                (getattr(Fragment, s_word_id) == fragment.word_id))
-            count = query(func.count()).one()[0]
-
-            if not count:
+            fragment = self._query_chain(
+                fragment, s_word_id, t_word_id, session)
+            if not fragment:
                 break
-
-            fragment = query(Fragment).offset(
-                int(random() * count)).first()
             result.append(getattr(fragment, t_word_id))
 
         if t == 'l':  # if target is towards left, reverse
