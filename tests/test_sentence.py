@@ -1,10 +1,13 @@
 import unittest
 
+from mtj.markov.model import sentence
 from mtj.markov.model.sentence import Sentence
 from mtj.markov.model.sentence import Fragment
 from mtj.markov.model.sentence import Word
 from mtj.markov.model.sentence import WordGraph
 from mtj.markov.model.sentence import IndexWordFragment
+
+from mtj.markov.testing import XorShift128
 
 
 class SentenceTestCase(unittest.TestCase):
@@ -12,6 +15,15 @@ class SentenceTestCase(unittest.TestCase):
     def setUp(self):
         self.engine = WordGraph()
         self.engine.initialize()
+        sentence.random, self.original_random = XorShift128(), sentence.random
+
+    def tearDown(self):
+        sentence.random = self.original_random
+
+    def skip_random(self, n=1):
+        # For skipping over unfavorable generated numbers.
+        for i in range(n):
+            sentence.random()
 
     def test_lookup_words_by_ids(self):
         engine = self.engine
@@ -107,30 +119,37 @@ class SentenceTestCase(unittest.TestCase):
         engine = self.engine
         engine.learn('how is this a problem')
         engine.learn('what is a carrier')
+        self.skip_random(8)
 
-        # generate 100 chains
-        chains = set(engine.generate('a', default='') for i in range(100))
+        self.assertEqual(engine.generate('a'), 'what is a carrier')
+        self.assertEqual(engine.generate('a'), 'how is this a problem')
 
-        # only two unique sentences should be generated, cannot generate
+        # generate 100 chains to test that the two learned setences are
+        # not actually connected at all (due to terminator).
         # e.g. 'how is this a carrier' ('this a carrier' not a chain)
+        chains = set(engine.generate('a', default='') for i in range(100))
         self.assertTrue(0 < len(chains) <= 2)
 
     def test_generate_terminate(self):
         engine = self.engine
         engine.learn('will start the engine tomorrow')
         engine.learn('the fire will start')
-        chains = set(engine.generate('the', default='') for i in range(100))
-        self.assertIn('the fire will start', chains)
+        self.skip_random(14)
+        self.assertEqual(
+            engine.generate('the'), 'the fire will start')
+        self.assertEqual(
+            engine.generate('the'), 'the fire will start the engine tomorrow')
+        self.assertEqual(
+            engine.generate('the'), 'will start the engine tomorrow')
 
-    def test_generate_not_circular(self):
+    def test_generate_not_unendingly_circular(self):
         engine = self.engine
         p = 'circular logic works because circular logic'
         engine.learn(p)
-        # As the ends link up with each other, there is always a 50/50
-        # chance that it will pick the other end when generating, i.e.
-        # a 75% chance that two or more continuations will occur; work
-        # around this by generating 10 chains for about 1 in a million
-        # chance that the original sentence will be absent from output.
-        # At least keep this until the random module gets mocked.
-        chains = set(engine.generate('logic', default='') for i in range(10))
-        self.assertIn(p, chains)
+        self.skip_random(2)
+        self.assertEqual(
+            engine.generate('logic'),
+            'circular logic works because circular logic')
+        # I had previously neglected this case, and this turns out to
+        # make the above best case again less common.
+        self.assertEqual(engine.generate('logic'), 'circular logic')
