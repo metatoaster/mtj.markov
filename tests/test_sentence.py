@@ -1,5 +1,7 @@
 import unittest
 
+from sqlalchemy.orm.session import Session
+
 from mtj.markov.model import sentence
 from mtj.markov.model.sentence import Sentence
 from mtj.markov.model.sentence import Fragment
@@ -153,3 +155,16 @@ class SentenceTestCase(unittest.TestCase):
         # I had previously neglected this case, and this turns out to
         # make the above best case again less common.
         self.assertEqual(engine.generate('logic'), 'circular logic')
+
+    def test_sentence_postlearn_hook(self):
+        _values = []
+        engine = self.engine
+
+        def hook(*a):
+            _values.extend(a)
+
+        engine.register_sentence_postlearn_hook(hook)
+        engine.learn('this should be hooked')
+        sentence, session = _values
+        self.assertFalse(sentence is None)
+        self.assertTrue(isinstance(session, Session))

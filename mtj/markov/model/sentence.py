@@ -141,11 +141,22 @@ class WordGraph(base.StateGraph):
         # maximum distance from starting chain for output.
         self.max_chain_distance = max_chain_distance
         self.normalize = normalize
+        self.sentence_postlearn_hooks = []
 
     def initialize(self, **kw):
         self.engine = create_engine(self.db_src, **kw)
         self.model.metadata.create_all(self.engine)
         self._sessions = scoped_session(sessionmaker(bind=self.engine))
+
+    def register_sentence_postlearn_hook(self, hook):
+        """
+        Register a sentence hook, which should be functions that accept
+        the final sentence object (ORM) that was created and the current
+        session object.  Intended use case is to allow the addition of
+        related data/metadata related to the sentence into the backend.
+        """
+
+        self.sentence_postlearn_hooks.append(hook)
 
     def _gen_word_dict(self, words, session):
         """
@@ -175,6 +186,11 @@ class WordGraph(base.StateGraph):
 
         return results
 
+    def postlearn_hooks(self, sentence, session):
+        # subclass can extend this.
+        for hook in self.sentence_postlearn_hooks:
+            hook(sentence, session)
+
     def _merge_states(self, words, timestamp=None, session=None):
         word_map = self._gen_word_dict(words, session)
 
@@ -190,6 +206,8 @@ class WordGraph(base.StateGraph):
         session.add(sentence)
         session.add_all(fragments)
         session.add_all(indexes)
+
+        self.postlearn_hooks(sentence, session)
 
         return fragments
 
