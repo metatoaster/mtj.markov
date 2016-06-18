@@ -7,6 +7,7 @@ from sqlalchemy import create_engine
 from sqlalchemy import func
 from sqlalchemy.orm import scoped_session
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.declarative import declarative_base
 
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -16,11 +17,7 @@ from .word import normalize
 # from ..exc import HandledError
 
 from .model import base
-from .model.sentence import Base
-from .model.sentence import Sentence
-from .model.sentence import Word
-from .model.sentence import Fragment
-from .model.sentence import IndexWordFragment
+from .model import sentence
 
 logger = getLogger(__name__)
 
@@ -30,13 +27,12 @@ class SentenceGraph(base.StateGraph):
     The graph of sentences.
     """
 
-    model = Base
-
     def __init__(self, db_src='sqlite://',
                  min_sentence_length=1,
                  max_chain_distance=50,
                  normalize=normalize,
                  **kw):
+        self.model = declarative_base(name='SentenceGraph')
         self.db_src = db_src
         self.min_sentence_length = min_sentence_length
         # maximum distance from starting chain for output.
@@ -47,7 +43,13 @@ class SentenceGraph(base.StateGraph):
     def initialize(self, **kw):
         self.engine = create_engine(self.db_src, **kw)
 
-        # self.model.metadata.tables['word'].create(bind=self.engine)
+        # manually doing the mixin here because sqlalchemy doesn't seem
+        # to have any way to mix different Bases together to make new
+        # ones to maintain separate identities.
+
+        for clsname in sentence.__all__:
+            basecls = getattr(sentence, clsname)
+            setattr(self, clsname, type(clsname, (basecls, self.model), {}))
 
         self.model.metadata.create_all(self.engine)
         self._sessions = scoped_session(sessionmaker(bind=self.engine))
@@ -81,8 +83,8 @@ class SentenceGraph(base.StateGraph):
             if word in results:
                 return
             # hopefully these are unique.
-            # results[word] = unique_merge(session, Word, word=word)
-            results[word] = session.merge(Word(word=word))
+            # results[word] = unique_merge(session, self.Word, word=word)
+            results[word] = session.merge(self.Word(word=word))
 
         for word in words:
             merge(word)
@@ -100,13 +102,13 @@ class SentenceGraph(base.StateGraph):
 
         fragments = []
         indexes = []
-        sentence = Sentence(timestamp)
+        sentence = self.Sentence(timestamp)
 
         for chain in nchain(3, words):
-            fragment = Fragment(sentence, *(word_map[c] for c in chain))
+            fragment = self.Fragment(sentence, *(word_map[c] for c in chain))
             fragments.append(fragment)
             nword = word_map[self.normalize(chain[1])]
-            indexes.append(IndexWordFragment(nword, fragment))
+            indexes.append(self.IndexWordFragment(nword, fragment))
         session.add(sentence)
         session.add_all(fragments)
         session.add_all(indexes)
@@ -157,8 +159,8 @@ class SentenceGraph(base.StateGraph):
         if session is None:
             session = self._sessions()
 
-        return dict(session.query(Word.id, Word.word).filter(
-            Word.id.in_(word_ids)).all())
+        return dict(session.query(self.Word.id, self.Word.word).filter(
+            self.Word.id.in_(word_ids)).all())
 
     def lookup_words_by_words(self, words, session=None):
         """
@@ -168,8 +170,8 @@ class SentenceGraph(base.StateGraph):
         if session is None:
             session = self._sessions()
 
-        return {w.word: w for w in session.query(Word).filter(
-            Word.word.in_(words)).all()}
+        return {w.word: w for w in session.query(self.Word).filter(
+            self.Word.word.in_(words)).all()}
 
     def pick_state_transition(self, word, session):
         """
@@ -180,30 +182,30 @@ class SentenceGraph(base.StateGraph):
 
         # XXX note pick_state_transition
         query = lambda p: session.query(p).select_from(
-            IndexWordFragment).join(Word).filter(
-            Word.word == self.normalize(word))
+            self.IndexWordFragment).join(self.Word).filter(
+            self.Word.word == self.normalize(word))
 
         count = query(func.count()).one()[0]
 
         if not count:
             raise KeyError('no such word in chains')
 
-        fragment = query(IndexWordFragment).offset(
+        fragment = query(self.IndexWordFragment).offset(
             int(random() * count)).first()
         return fragment.fragment
 
     def _query_chain(self, fragment, s_word_id, t_word_id, session):
-        # Fragment.word_id points to a joiner, skip the second cond
+        # self.Fragment.word_id points to a joiner, skip the second cond
         # which is the source restriction, so that words like "and" can
         # be treated as a standalone 1-order word.
 
-        query = lambda p: session.query(p).select_from(Fragment).filter(
-            (Fragment.word_id == getattr(fragment, t_word_id)) &
-            (getattr(Fragment, s_word_id) == fragment.word_id))
+        query = lambda p: session.query(p).select_from(self.Fragment).filter(
+            (self.Fragment.word_id == getattr(fragment, t_word_id)) &
+            (getattr(self.Fragment, s_word_id) == fragment.word_id))
         count = query(func.count()).one()[0]
         if not count:
             return None
-        return query(Fragment).offset(int(random() * count)).first()
+        return query(self.Fragment).offset(int(random() * count)).first()
 
     def follow_chain(self, fragment, direction, session=None):
         """

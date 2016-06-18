@@ -9,13 +9,14 @@ from sqlalchemy.schema import UniqueConstraint
 from sqlalchemy.types import Integer
 from sqlalchemy.types import String
 from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.ext.declarative import declared_attr
 
 from . import base
 
-Base = declarative_base(name='Text')
+__all__ = ['Sentence', 'Word', 'Fragment', 'IndexWordFragment']
 
 
-class Sentence(Base):
+class Sentence(object):
     __tablename__ = 'sentence'
 
     # metadata attaches to this.
@@ -29,7 +30,7 @@ class Sentence(Base):
         self.timestamp = timestamp
 
 
-class Word(base.State, Base):
+class Word(base.State):
     __tablename__ = 'word'
 
     id = Column(Integer(), primary_key=True, nullable=False)
@@ -39,7 +40,7 @@ class Word(base.State, Base):
         self.word = word
 
 
-class Fragment(base.StateTransition, Base):
+class Fragment(base.StateTransition):
     """
     A fragment of a sentence, 3 word states = 2-order markov.
     """
@@ -47,20 +48,49 @@ class Fragment(base.StateTransition, Base):
     __tablename__ = 'fragment'
 
     id = Column(Integer(), primary_key=True, nullable=False)
-    sentence_id = Column(Integer(), ForeignKey('sentence.id'), nullable=False)
-    l_word_id = Column(Integer(), ForeignKey('word.id'), nullable=False)
-    word_id = Column(Integer(), ForeignKey('word.id'), nullable=False)
-    r_word_id = Column(Integer(), ForeignKey('word.id'), nullable=False)
+    @declared_attr
+    def sentence_id(cls):
+        return Column(Integer(), ForeignKey('sentence.id'), nullable=False)
 
-    sentence = relationship('Sentence', foreign_keys=sentence_id)
-    l_word = relationship('Word', foreign_keys=l_word_id)
-    word = relationship('Word', foreign_keys=word_id)
-    r_word = relationship('Word', foreign_keys=r_word_id)
+    @declared_attr
+    def l_word_id(cls):
+        return Column(Integer(), ForeignKey('word.id'), nullable=False)
+
+    @declared_attr
+    def word_id(cls):
+        return Column(Integer(), ForeignKey('word.id'), nullable=False)
+
+    @declared_attr
+    def r_word_id(cls):
+        return Column(Integer(), ForeignKey('word.id'), nullable=False)
+
+    @declared_attr
+    def sentence(cls):
+        return relationship('Sentence', foreign_keys=cls.sentence_id)
+
+    @declared_attr
+    def l_word(cls):
+        return relationship('Word', foreign_keys=cls.l_word_id)
+
+    @declared_attr
+    def word(cls):
+        return relationship('Word', foreign_keys=cls.word_id)
+
+    @declared_attr
+    def r_word(cls):
+        return relationship('Word', foreign_keys=cls.r_word_id)
+
 
     # This is deferred to IndexWordFragment
     # idx_word = Index('word_id', 'word_id')
-    idx_l_word = Index('idx_l_word', word_id, r_word_id)
-    idx_r_word = Index('idx_r_word', l_word_id, word_id)
+    @declared_attr
+    def idx_l_word(cls):
+        return Index('idx_l_word', cls.word_id, cls.r_word_id)
+
+    @declared_attr
+    def idx_r_word(cls):
+        return Index('idx_r_word', cls.l_word_id, cls.word_id)
+
     # TODO figure out how to get all fragments associated with this
     # fragment at either directions.
 
@@ -79,7 +109,7 @@ class Fragment(base.StateTransition, Base):
         )
 
 
-class IndexWordFragment(Base):
+class IndexWordFragment(object):
     """
     Look up word to fragment.  Reason for this seemingly redundant table
     is solely due to word allomorphs, i.e. plurals, capitalization or
@@ -93,15 +123,27 @@ class IndexWordFragment(Base):
 
     # XXX probably don't need id as the primary key
     id = Column(Integer(), primary_key=True, nullable=False)
-    word_id = Column(
-        Integer(), ForeignKey('word.id'), index=True, nullable=False)
-    fragment_id = Column(
-        Integer(), ForeignKey('fragment.id'), index=True, nullable=False)
 
-    word = relationship('Word', foreign_keys=word_id)
-    fragment = relationship('Fragment', foreign_keys=fragment_id)
+    @declared_attr
+    def word_id(cls):
+        return Column(Integer(), ForeignKey('word.id'), index=True, nullable=False)
 
-    wc = UniqueConstraint(word_id, fragment_id)
+    @declared_attr
+    def fragment_id(cls):
+        return Column(Integer(), ForeignKey('fragment.id'), index=True, nullable=False)
+
+    @declared_attr
+    def word(cls):
+        return relationship('Word', foreign_keys=cls.word_id)
+
+    @declared_attr
+    def fragment(cls):
+        return relationship('Fragment', foreign_keys=cls.fragment_id)
+
+
+    @declared_attr
+    def wc(cls):
+        return UniqueConstraint(cls.word_id, cls.fragment_id)
 
     def __init__(self, word, fragment):
         self.word = word

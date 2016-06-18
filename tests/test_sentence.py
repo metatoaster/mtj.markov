@@ -2,12 +2,6 @@ import unittest
 
 from sqlalchemy.orm.session import Session
 
-from mtj.markov.model import sentence
-from mtj.markov.model.sentence import Sentence
-from mtj.markov.model.sentence import Fragment
-from mtj.markov.model.sentence import Word
-from mtj.markov.model.sentence import IndexWordFragment
-
 from mtj.markov import graph
 from mtj.markov.graph import SentenceGraph
 
@@ -54,13 +48,13 @@ class SentenceTestCase(unittest.TestCase):
 
         engine.learn(
             'if you gaze long into an abyss, the abyss also gazes into you.')
-        self.assertEqual(s.query(Word).count(), 13)
-        self.assertEqual(s.query(Fragment).count(), 13)
-        self.assertEqual(s.query(IndexWordFragment).count(), 13)
-        self.assertEqual(s.query(IndexWordFragment).join(Word).filter(
-            Word.word == 'you').count(), 2)
-        self.assertEqual(s.query(IndexWordFragment).join(Word).filter(
-            Word.word == 'abyss').count(), 2)
+        self.assertEqual(s.query(engine.Word).count(), 13)
+        self.assertEqual(s.query(engine.Fragment).count(), 13)
+        self.assertEqual(s.query(engine.IndexWordFragment).count(), 13)
+        self.assertEqual(s.query(engine.IndexWordFragment).join(
+            engine.Word).filter(engine.Word.word == 'you').count(), 2)
+        self.assertEqual(s.query(engine.IndexWordFragment).join(
+            engine.Word).filter(engine.Word.word == 'abyss').count(), 2)
 
     def test_learn_failure_sql(self):
         engine = self.engine
