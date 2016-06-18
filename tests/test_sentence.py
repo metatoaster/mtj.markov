@@ -6,8 +6,10 @@ from mtj.markov.model import sentence
 from mtj.markov.model.sentence import Sentence
 from mtj.markov.model.sentence import Fragment
 from mtj.markov.model.sentence import Word
-from mtj.markov.model.sentence import WordGraph
 from mtj.markov.model.sentence import IndexWordFragment
+
+from mtj.markov import graph
+from mtj.markov.graph import SentenceGraph
 
 from mtj.markov.testing import XorShift128
 
@@ -15,17 +17,17 @@ from mtj.markov.testing import XorShift128
 class SentenceTestCase(unittest.TestCase):
 
     def setUp(self):
-        self.engine = WordGraph()
+        self.engine = SentenceGraph()
         self.engine.initialize()
-        sentence.random, self.original_random = XorShift128(), sentence.random
+        graph.random, self.original_random = XorShift128(), graph.random
 
     def tearDown(self):
-        sentence.random = self.original_random
+        graph.random = self.original_random
 
     def skip_random(self, n=1):
         # For skipping over unfavorable generated numbers.
         for i in range(n):
-            sentence.random()
+            graph.random()
 
     def test_lookup_words_by_ids(self):
         engine = self.engine
