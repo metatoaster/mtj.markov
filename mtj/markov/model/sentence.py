@@ -16,7 +16,7 @@ from . import base
 __all__ = ['Sentence', 'Word', 'Fragment', 'IndexWordFragment']
 
 
-class Sentence(object):
+class Sentence(base.Datum):
     __tablename__ = 'sentence'
 
     # metadata attaches to this.
@@ -109,8 +109,10 @@ class Fragment(base.StateTransition):
         )
 
 
-class IndexWordFragment(object):
+class IndexWordFragment(base.Index):
     """
+    An index table.
+
     Look up word to fragment.  Reason for this seemingly redundant table
     is solely due to word allomorphs, i.e. plurals, capitalization or
     other characters that should be removed.

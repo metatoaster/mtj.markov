@@ -4,7 +4,33 @@ Base modules.
 """
 
 
-class State(object):
+class Node(object):
+    """
+    A node within the graph.
+    """
+
+
+class Graph(object):
+    """
+    The graph.
+    """
+
+
+class Datum(Node):
+    """
+    Base class for the representation of a single unit of data to be
+    added to the markov engine.
+
+    Examples:
+
+    - A given source word for a word generator.
+    - The sentence (or some text) to be added to a markov text graph.
+    - In simple weather model, a chain of possible weather events over a
+      series of fixed time periods amounting to a typical cycle length.
+    """
+
+
+class State(Node):
     """
     Base class for the representation of a state within a markov chain.
 
@@ -12,12 +38,22 @@ class State(object):
     
     - In a word generator, this simply is a letter.
     - In a sentence (or text) generator, this could simply be a word.
-    - In simple weather model, this can be the amount of rainfall in an
-      hour
+    - In simple weather model, this can be the amount of rainfall and/or
+      the amount of sunshine received over a fixed time period.
     """
 
 
-class StateTransition(object):
+class Index(Node):
+    """
+    Base class for representing an index
+
+    This is for the storage of normalized form of similar data and/or to
+    facilitate lookup of states and/or state transitions, depending on
+    the specific implementation of the engine.
+    """
+
+
+class StateTransition(Node):
     """
     Base class for describing state transition using States.
 
@@ -50,7 +86,7 @@ class StateTransition(object):
         raise NotImplementedError
 
 
-class StateGraph(object):
+class StateGraph(Graph):
     """
     A description containing all state transitions and states for the
     generation of a markov chain.
