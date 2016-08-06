@@ -11,13 +11,13 @@ from sqlalchemy.ext.declarative import declarative_base
 
 from sqlalchemy.exc import SQLAlchemyError
 
-from .utils import unique_merge
-from .utils import nchain
-from .word import normalize
+from ..utils import unique_merge
+from ..utils import nchain
+from ..word import normalize
 # from ..exc import HandledError
 
-from .model import base
-from .model import sentence
+from ..model import base
+from ..model import sentence
 
 logger = getLogger(__name__)
 

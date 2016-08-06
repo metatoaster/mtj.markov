@@ -2,8 +2,8 @@ import unittest
 
 from sqlalchemy.orm.session import Session
 
-from mtj.markov import graph
-from mtj.markov.graph import SentenceGraph
+from mtj.markov.graph import sentence
+from mtj.markov.graph.sentence import SentenceGraph
 
 from mtj.markov.testing import XorShift128
 
@@ -13,15 +13,15 @@ class SentenceTestCase(unittest.TestCase):
     def setUp(self):
         self.engine = SentenceGraph()
         self.engine.initialize()
-        graph.random, self.original_random = XorShift128(), graph.random
+        sentence.random, self.original_random = XorShift128(), sentence.random
 
     def tearDown(self):
-        graph.random = self.original_random
+        sentence.random = self.original_random
 
     def skip_random(self, n=1):
         # For skipping over unfavorable generated numbers.
         for i in range(n):
-            graph.random()
+            sentence.random()
 
     def test_lookup_words_by_ids(self):
         engine = self.engine
