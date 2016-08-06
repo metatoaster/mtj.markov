@@ -4,6 +4,9 @@
 class XorShift128(object):
     """
     Predictable pseudonumber generator for testing.
+
+    Although creating a random.Random instance would work, but this is
+    still a neat toy to play with.
     """
 
     overflow = (2 ** 32)
