@@ -16,13 +16,13 @@ from ..utils import nchain
 from ..word import normalize
 # from ..exc import HandledError
 
-from ..model import base
 from ..model import sentence
+from . import base
 
 logger = getLogger(__name__)
 
 
-class SentenceGraph(base.StateGraph):
+class SentenceGraph(base.SqliteStateGraph):
     """
     The graph of sentences.
     """
@@ -34,25 +34,26 @@ class SentenceGraph(base.StateGraph):
                  **kw):
         self.model = declarative_base(name='SentenceGraph')
         self.db_src = db_src
+        super(SentenceGraph, self).__init__(db_src, **kw)
         self.min_sentence_length = min_sentence_length
         # maximum distance from starting chain for output.
         self.max_chain_distance = max_chain_distance
         self.normalize = normalize
         self.sentence_postlearn_hooks = []
 
-    def initialize(self, **kw):
-        self.engine = create_engine(self.db_src, **kw)
+    def initialize(self, modules=None, **kw):
+        local_modules = [sentence]
+        if modules:
+            # should probably append.
+            local_modules.extend(modules)
 
-        # manually doing the mixin here because sqlalchemy doesn't seem
-        # to have any way to mix different Bases together to make new
-        # ones to maintain separate identities.
+        super(SentenceGraph, self).initialize(local_modules, **kw)
 
-        for clsname in sentence.__all__:
-            basecls = getattr(sentence, clsname)
-            setattr(self, clsname, type(clsname, (basecls, self.model), {}))
-
-        self.model.metadata.create_all(self.engine)
-        self._sessions = scoped_session(sessionmaker(bind=self.engine))
+        # XXX assigning the autocreated classes in parent to here
+        self.IndexWordFragment = self.classes['IndexWordFragment']
+        self.Fragment = self.classes['Fragment']
+        self.Sentence = self.classes['Sentence']
+        self.Word = self.classes['Word']
 
     def register_sentence_postlearn_hook(self, hook):
         """
@@ -130,27 +131,6 @@ class SentenceGraph(base.StateGraph):
         words = [''] + source + ['']
         self._merge_states(words, timestamp=timestamp, session=session)
 
-    def learn(self, sentence):
-        try:
-            session = self._sessions()
-            fragments = self._learn(sentence, session=session)
-        # Originally planned for handling individual word errors, but
-        # given this is only triggered for more strict RDBMS and also
-        # that the exception is only raised on commit, skip for now.
-        # except HandledError as e:
-        #     logger.error('Failed to learn sentence: %s', sentence)
-        except SQLAlchemyError as e:
-            logger.exception(
-                'SQLAlchemy Error while learning: %s', sentence)
-        except Exception as e:
-            logger.exception('Unexpected error')
-        else:
-            session.commit()
-            # These fragments (i.e. its id) can be used for association
-            # with metadata.
-            return fragments
-        return []
-
     def lookup_words_by_ids(self, word_ids, session=None):
         """
         Return all words associated with the list of word_ids
@@ -173,12 +153,15 @@ class SentenceGraph(base.StateGraph):
         return {w.word: w for w in session.query(self.Word).filter(
             self.Word.word.in_(words)).all()}
 
-    def pick_state_transition(self, word, session):
+    def pick_entry_point(self, data, session):
         """
         Return a state_transition based on arguments.  Return value must
         be a StateTransition type, that can serve as the starting
         value for the generate method.
         """
+
+        # TODO verify that data is a word
+        word = data
 
         # XXX note pick_state_transition
         query = lambda p: session.query(p).select_from(
@@ -190,9 +173,9 @@ class SentenceGraph(base.StateGraph):
         if not count:
             raise KeyError('no such word in chains')
 
-        fragment = query(self.IndexWordFragment).offset(
+        index = query(self.IndexWordFragment).offset(
             int(random() * count)).first()
-        return fragment.fragment
+        return index.fragment
 
     def _query_chain(self, fragment, s_word_id, t_word_id, session):
         # self.Fragment.word_id points to a joiner, skip the second cond
@@ -238,23 +221,6 @@ class SentenceGraph(base.StateGraph):
             return list(reversed(result))
         return result
 
-    def generate(self, word, default=None):
-        # XXX different from parent definition.
-        # XXX might be a hook within the StateGraph that is decoupled
-        # from the SQLAlchemy engine.
-        session = self._sessions()
-
-        try:
-            entry_point = self.pick_state_transition(word, session)
-        except KeyError:
-            if default is not None:
-                return default
-            raise
-
-        lhs = self.follow_chain(entry_point, 'rl', session)
-        c = list(entry_point.list_states())
-        rhs = self.follow_chain(entry_point, 'lr', session)
-
-        word_ids = lhs + c + rhs
-        words = self.lookup_words_by_ids(word_ids, session)
-        return ' '.join(words[word_id] for word_id in word_ids).strip()
+    def _generate(self, data, default=None):
+        result = super(SentenceGraph, self)._generate(data)
+        return ' '.join(w.word for w in result).strip()
