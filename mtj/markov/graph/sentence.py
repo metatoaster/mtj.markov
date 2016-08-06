@@ -39,7 +39,6 @@ class SentenceGraph(base.SqliteStateGraph):
         # maximum distance from starting chain for output.
         self.max_chain_distance = max_chain_distance
         self.normalize = normalize
-        self.sentence_postlearn_hooks = []
 
     def initialize(self, modules=None, **kw):
         local_modules = [sentence]
@@ -54,16 +53,6 @@ class SentenceGraph(base.SqliteStateGraph):
         self.Fragment = self.classes['Fragment']
         self.Sentence = self.classes['Sentence']
         self.Word = self.classes['Word']
-
-    def register_sentence_postlearn_hook(self, hook):
-        """
-        Register a sentence hook, which should be functions that accept
-        the final sentence object (ORM) that was created and the current
-        session object.  Intended use case is to allow the addition of
-        related data/metadata related to the sentence into the backend.
-        """
-
-        self.sentence_postlearn_hooks.append(hook)
 
     def _gen_word_dict(self, words, session):
         """
@@ -93,11 +82,6 @@ class SentenceGraph(base.SqliteStateGraph):
 
         return results
 
-    def postlearn_hooks(self, sentence, session):
-        # subclass can extend this.
-        for hook in self.sentence_postlearn_hooks:
-            hook(sentence, session)
-
     def _merge_states(self, words, timestamp=None, session=None):
         word_map = self._gen_word_dict(words, session)
 
@@ -113,8 +97,6 @@ class SentenceGraph(base.SqliteStateGraph):
         session.add(sentence)
         session.add_all(fragments)
         session.add_all(indexes)
-
-        self.postlearn_hooks(sentence, session)
 
         return fragments
 
