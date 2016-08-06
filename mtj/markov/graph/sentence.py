@@ -32,9 +32,9 @@ class SentenceGraph(base.SqliteStateGraph):
                  max_chain_distance=50,
                  normalize=normalize,
                  **kw):
-        self.model = declarative_base(name='SentenceGraph')
-        self.db_src = db_src
         super(SentenceGraph, self).__init__(db_src, **kw)
+
+        # XXX constants set somewhere not here.
         self.min_sentence_length = min_sentence_length
         # maximum distance from starting chain for output.
         self.max_chain_distance = max_chain_distance
@@ -51,89 +51,8 @@ class SentenceGraph(base.SqliteStateGraph):
         # XXX assigning the autocreated classes in parent to here
         self.IndexWordFragment = self.classes['IndexWordFragment']
         self.Fragment = self.classes['Fragment']
-        self.Sentence = self.classes['Sentence']
+        # self.Sentence = self.classes['Sentence']
         self.Word = self.classes['Word']
-
-    def _gen_word_dict(self, words, session):
-        """
-        A dedicated method to generate a word dictionary that maps all
-        input words (plus their normalized form) into the actual objects
-        that are present inside the db.  If not they will be merged.
-
-        Returns a dictionary that maps all words to be used for fragment
-        generation.
-        """
-
-        # grab all of them with a single in statement.
-        results = self.lookup_words_by_words(
-            (set([normalize(w) for w in words] + words)),
-            session)
-
-        def merge(word):
-            if word in results:
-                return
-            # hopefully these are unique.
-            # results[word] = unique_merge(session, self.Word, word=word)
-            results[word] = session.merge(self.Word(word=word))
-
-        for word in words:
-            merge(word)
-            merge(self.normalize(word))
-
-        return results
-
-    def _merge_states(self, words, timestamp=None, session=None):
-        word_map = self._gen_word_dict(words, session)
-
-        fragments = []
-        indexes = []
-        sentence = self.Sentence(timestamp)
-
-        for chain in nchain(3, words):
-            fragment = self.Fragment(sentence, *(word_map[c] for c in chain))
-            fragments.append(fragment)
-            nword = word_map[self.normalize(chain[1])]
-            indexes.append(self.IndexWordFragment(nword, fragment))
-        session.add(sentence)
-        session.add_all(fragments)
-        session.add_all(indexes)
-
-        return fragments
-
-    def _learn(self, sentence, timestamp=None, session=None):
-        if session is None:
-            # XXX might be a hook within the StateGraph that is decoupled
-            # from the SQLAlchemy engine.
-            session = self._sessions()
-
-        # source words
-        source = sentence.split()
-        if len(source) < self.min_sentence_length:
-            return []
-        words = [''] + source + ['']
-        self._merge_states(words, timestamp=timestamp, session=session)
-
-    def lookup_words_by_ids(self, word_ids, session=None):
-        """
-        Return all words associated with the list of word_ids
-        """
-
-        if session is None:
-            session = self._sessions()
-
-        return dict(session.query(self.Word.id, self.Word.word).filter(
-            self.Word.id.in_(word_ids)).all())
-
-    def lookup_words_by_words(self, words, session=None):
-        """
-        Return all Words associated with the list of words
-        """
-
-        if session is None:
-            session = self._sessions()
-
-        return {w.word: w for w in session.query(self.Word).filter(
-            self.Word.word.in_(words)).all()}
 
     def pick_entry_point(self, data, session):
         """

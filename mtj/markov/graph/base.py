@@ -27,6 +27,7 @@ class SqliteStateGraph(base.StateGraph):
         self.model = declarative_base(name=type(self).__name__)
         self.classes = {}
         self.db_src = db_src
+        self.loaders = []
 
     def initialize(self, modules, **kw):
         self.engine = create_engine(self.db_src, **kw)
@@ -49,25 +50,25 @@ class SqliteStateGraph(base.StateGraph):
                         (basecls, self.model),
                         {}
                     )
-                    # again, check for dupes...
+                    # XXX again, should check for dupes...
                     if issubclass(cls, base.State):
                         self.State = cls
+                    elif issubclass(cls, base.Datum):
+                        self.Datum = cls
+                elif issubclass(basecls, base.Loader):
+                    self.loaders.append(basecls(self))
 
         self.model.metadata.create_all(self.engine)
         self._sessions = scoped_session(sessionmaker(bind=self.engine))
 
-    def _learn(self, datum, session):
-        raise NotImplementedError
-
-    def learn(self, datum):
+    def learn(self, table):
         try:
             session = self._sessions()
-            fragments = self._learn(datum, session=session)
-        # Originally planned for handling individual word errors, but
-        # given this is only triggered for more strict RDBMS and also
-        # that the exception is only raised on commit, skip for now.
-        # except HandledError as e:
-        #     logger.error('Failed to learn sentence: %s', sentence)
+            datum = self.Datum()
+            for loader in self.loaders:
+                raw = table[type(loader)]
+                session.add(datum)
+                loader(session, raw, datum, **self.classes)
         except SQLAlchemyError as e:
             logger.exception(
                 'SQLAlchemy Error while learning: %s', datum)
@@ -75,10 +76,6 @@ class SqliteStateGraph(base.StateGraph):
             logger.exception('Unexpected error')
         else:
             session.commit()
-            # These fragments (i.e. its id) can be used for association
-            # with metadata.
-            return fragments
-        return []
 
     def lookup_states_by_ids(self, state_ids, session=None):
         """

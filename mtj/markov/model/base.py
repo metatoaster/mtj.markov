@@ -98,6 +98,12 @@ class StateTransition(Node):
         raise NotImplementedError
 
 
+class Loader(object):
+    """
+    Loads stuff into a state graph.
+    """
+
+
 class StateGraph(Graph):
     """
     A description containing all state transitions and states for the
