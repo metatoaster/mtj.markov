@@ -27,10 +27,22 @@ class Datum(Node):
     - The sentence (or some text) to be added to a markov text graph.
     - In simple weather model, a chain of possible weather events over a
       series of fixed time periods amounting to a typical cycle length.
+
+    Althugh typically, these raw datum are never stored, but rather they
+    are reduced to some unique identifier where it can be used as a
+    starting point to regnerate the original from the other parts the
+    added data.
     """
 
 
-class State(Node):
+class Normalized(Node):
+    """
+    Normalized data nodes.  It should have an id, and the data should be
+    unique over the entire table/graph.
+    """
+
+
+class State(Normalized):
     """
     Base class for the representation of a state within a markov chain.
 
