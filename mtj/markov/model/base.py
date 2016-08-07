@@ -16,6 +16,30 @@ class Graph(object):
     """
 
 
+class Value(Node):
+    """
+    A simple value node for id to unique value lookups.
+    """
+
+    def __init__(self, value):
+        """
+        Default constructor assigns the value to self.value
+        """
+
+        self.value = value
+
+    @classmethod
+    def unique_merge(cls, session, value):
+        """
+        Return the unique value found through the session, otherwise
+        construct a new one if not found.  Underlying engine need to
+        address the actual uniqueness of the value.
+        """
+
+        return (session.query(cls).filter(cls.value == value).first() or
+                session.merge(cls(value)))
+
+
 class Datum(Node):
     """
     Base class for the representation of a single unit of data to be
