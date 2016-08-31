@@ -64,6 +64,11 @@ class SqliteStateGraph(base.StateGraph):
     def learn(self, table):
         try:
             session = self._sessions()
+        except Exception:
+            logger.exception('Unexpected error')
+            return
+
+        try:
             datum = self.Datum()
             for loader in self.loaders:
                 raw = table[type(loader)]
@@ -72,8 +77,10 @@ class SqliteStateGraph(base.StateGraph):
         except SQLAlchemyError as e:
             logger.exception(
                 'SQLAlchemy Error while learning: %s', datum)
+            session.rollback()
         except Exception as e:
             logger.exception('Unexpected error')
+            session.rollback()
         else:
             session.commit()
 

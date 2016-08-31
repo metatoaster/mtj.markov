@@ -102,6 +102,13 @@ class SentenceTestCase(unittest.TestCase):
         chain = engine.generate('doing')
         self.assertEqual(chain, 'how are you doing')
 
+    def test_basic_generate_bad(self):
+        engine = self.engine
+        p = 'a ' + ('b' * 1024)
+        engine.learn({sentence.Loader: p})
+        chain = engine.generate('a')
+        self.assertEqual(chain, p)
+
     def test_basic_generate_long(self):
         engine = self.engine
         p = 'if you gaze long into an abyss, the abyss also gazes into you.'
