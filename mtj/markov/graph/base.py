@@ -104,7 +104,7 @@ class SqliteStateGraph(base.StateGraph):
 
         raise NotImplementedError
 
-    def follow_chain(self, fragment, direction, session=None):
+    def follow_chain(self, data, fragment, direction, session=None):
         """
         Follow the fragments for the list of word ids that will make a
         markov chain.
@@ -121,9 +121,9 @@ class SqliteStateGraph(base.StateGraph):
         session = self._sessions()
         entry_point = self.pick_entry_point(data, session)
 
-        lhs = self.follow_chain(entry_point, 'rl', session)
+        lhs = self.follow_chain(data, entry_point, 'rl', session)
         c = list(entry_point.list_states())
-        rhs = self.follow_chain(entry_point, 'lr', session)
+        rhs = self.follow_chain(data, entry_point, 'lr', session)
 
         state_ids = lhs + c + rhs
         states = self.lookup_states_by_ids(state_ids, session)

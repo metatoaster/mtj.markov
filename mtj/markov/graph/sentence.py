@@ -78,7 +78,7 @@ class SentenceGraph(base.SqliteStateGraph):
             int(random() * count)).first()
         return index.fragment
 
-    def _query_chain(self, fragment, s_word_id, t_word_id, session):
+    def _query_chain(self, data, fragment, s_word_id, t_word_id, session):
         # self.Fragment.word_id points to a joiner, skip the second cond
         # which is the source restriction, so that words like "and" can
         # be treated as a standalone 1-order word.
@@ -91,7 +91,7 @@ class SentenceGraph(base.SqliteStateGraph):
             return None
         return query(self.Fragment).offset(int(random() * count)).first()
 
-    def follow_chain(self, fragment, direction, session=None):
+    def follow_chain(self, data, fragment, direction, session=None):
         """
         Follow the fragments for the list of word ids that will make a
         markov chain.
@@ -113,7 +113,7 @@ class SentenceGraph(base.SqliteStateGraph):
         result = []
         for c in range(self.max_chain_distance):
             fragment = self._query_chain(
-                fragment, s_word_id, t_word_id, session)
+                data, fragment, s_word_id, t_word_id, session)
             if not fragment:
                 break
             result.append(getattr(fragment, t_word_id))
