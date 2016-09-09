@@ -95,15 +95,20 @@ class XMPPTestCase(unittest.TestCase):
         """)
 
         user2_text = split_text("""
-            Today is a bad day.
+            Today is a bad day to live.
             Yesterday there was a bright fine explosion.
             I am too tired to deal with this.
             She will not be forgotten.
         """)
 
+        user3_text = split_text("""
+            Today is a good day to die.
+        """)
+
         data = (
             ('user1@example.com', 'User 1', user1_text),
             ('user2@example.com', 'User 2', user2_text),
+            ('user3@example.com', 'User 3', user3_text),
         )
 
         engine = self.engine
@@ -119,16 +124,24 @@ class XMPPTestCase(unittest.TestCase):
                     }
                 })
 
+        self.skip_random(9)
         today = engine.generate({'word': 'Today'})
-        self.assertEqual(today, 'Today is a bright person.')
+        self.assertEqual(today, 'Today is a bad day to die.')
         # combining things both users said.
+        self.skip_random(3)
         chain = engine.generate({'word': 'bright'})
-        self.assertEqual(chain, 'Yesterday there was a bright person.')
+        self.assertEqual(chain, 'I wish he was not a bright fine day.')
 
-        # user1_bright = engine.generate({
-        #     'word': 'bright',
-        #     'jid': 'user1@example.com',
-        # })
+        user3_example = engine.generate({
+            'jid': 'user3@example.com',
+        })
+        self.assertEqual(user3_example, 'Today is a good day to die.')
+
+        self.skip_random(2)
+        user1_example = engine.generate({
+            'jid': 'user1@example.com',
+        })
+        self.assertEqual(user1_example, 'She will be a bright person.')
 
         # s = self.engine._sessions()
         # self.assertEqual(

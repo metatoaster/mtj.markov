@@ -1,8 +1,11 @@
+from logging import getLogger
 from random import random
 from sqlalchemy import func
 
 from .sentence import SentenceGraph
 from ..model import xmpp
+
+logger = getLogger(__name__)
 
 
 class XMPPGraph(SentenceGraph):
@@ -18,6 +21,12 @@ class XMPPGraph(SentenceGraph):
 
         super(XMPPGraph, self).initialize(local_modules, **kw)
 
+        # XXX assigning the autocreated classes in parent to here
+        self.JID = self.classes['JID']
+        self.Muc = self.classes['Muc']
+        self.Nickname = self.classes['Nickname']
+        self.XMPPLog = self.classes['XMPPLog']
+
     def pick_entry_point(self, data, session):
         """
         Return a state_transition based on arguments.  Return value must
@@ -25,33 +34,50 @@ class XMPPGraph(SentenceGraph):
         value for the generate method.
         """
 
-        # TODO verify that data is a word
-        word = data.get('word')
+        jid = data.get('jid')
+        if not jid:
+            # XXX what about nickname and muc??
+            # only rely on jid for the mean time, figure out the metrics
+            # for mapping nickname + muc to jid
+            return super(XMPPGraph, self).pick_entry_point(data, session)
 
-        # XXX note pick_state_transition
-        # XXX the condtion need to link to sentence AND xmpp stuff
+        # XXX ignoring word
         query = lambda p: session.query(p).select_from(
-            self.IndexWordFragment).join(self.Word).filter(
-            self.Word.word == self.normalize(word))
+            self.Fragment).join(
+                self.XMPPLog,
+                self.XMPPLog.sentence_id == self.Fragment.sentence_id
+            ).join(self.JID).filter(self.JID.value == jid)
 
         count = query(func.count()).one()[0]
 
         if not count:
-            raise KeyError('no such word in chains')
+            raise KeyError('failed to find fragments for jid <%s>', jid)
 
-        index = query(self.IndexWordFragment).offset(
+        fragment = query(self.Fragment).offset(
             int(random() * count)).first()
-        return index.fragment
+        logger.debug('picked fragment_id %d', fragment.id)
+        return fragment
 
     def _query_chain(self, data, fragment, s_word_id, t_word_id, session):
+        jid = data.get('jid')
+        if not jid:
+            # See pick_entry_point
+            return super(XMPPGraph, self)._query_chain(
+                data, fragment, s_word_id, t_word_id, session)
+
         # self.Fragment.word_id points to a joiner, skip the second cond
         # which is the source restriction, so that words like "and" can
         # be treated as a standalone 1-order word.
 
         # ditto, the linkage is here, too.
-        query = lambda p: session.query(p).select_from(self.Fragment).filter(
-            (self.Fragment.word_id == getattr(fragment, t_word_id)) &
-            (getattr(self.Fragment, s_word_id) == fragment.word_id))
+        query = lambda p: session.query(p).select_from(self.Fragment).join(
+                self.XMPPLog,
+                self.XMPPLog.sentence_id == self.Fragment.sentence_id
+            ).join(self.JID).filter(
+                (self.JID.value == jid) &
+                (self.Fragment.word_id == getattr(fragment, t_word_id)) &
+                (getattr(self.Fragment, s_word_id) == fragment.word_id)
+            )
         count = query(func.count()).one()[0]
         if not count:
             return None
