@@ -26,7 +26,7 @@ class XMPPGraph(SentenceGraph):
         """
 
         # TODO verify that data is a word
-        word = data
+        word = data.get('word')
 
         # XXX note pick_state_transition
         # XXX the condtion need to link to sentence AND xmpp stuff

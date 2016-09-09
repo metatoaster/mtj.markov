@@ -62,7 +62,7 @@ class SentenceGraph(base.SqliteStateGraph):
         """
 
         # TODO verify that data is a word
-        word = data
+        word = data.get('word')
 
         # XXX note pick_state_transition
         query = lambda p: session.query(p).select_from(

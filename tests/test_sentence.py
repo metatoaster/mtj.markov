@@ -79,17 +79,17 @@ class SentenceTestCase(unittest.TestCase):
         engine.min_sentence_length = 3
         result = engine.learn({sentence.Loader: 'hello world'})
         with self.assertRaises(KeyError):
-            result = engine.generate('hi')
+            result = engine.generate({'word': 'hi'})
 
     def test_null_generate(self):
         engine = self.engine
         with self.assertRaises(KeyError):
-            result = engine.generate('hi')
+            result = engine.generate({'word': 'hi'})
 
     def test_null_generate_default(self):
         engine = self.engine
         _marker = object()
-        result = engine.generate('hi', _marker)
+        result = engine.generate({'word': 'hi'}, _marker)
         self.assertIs(result, _marker)
 
     def test_basic_generate(self):
@@ -97,23 +97,23 @@ class SentenceTestCase(unittest.TestCase):
         engine.learn({sentence.Loader: 'how are you doing'})
 
         # both directions
-        chain = engine.generate('you')
+        chain = engine.generate({'word': 'you'})
         self.assertEqual(chain, 'how are you doing')
-        chain = engine.generate('doing')
+        chain = engine.generate({'word': 'doing'})
         self.assertEqual(chain, 'how are you doing')
 
     def test_basic_generate_bad(self):
         engine = self.engine
         p = 'a ' + ('b' * 1024)
         engine.learn({sentence.Loader: p})
-        chain = engine.generate('a')
+        chain = engine.generate({'word': 'a'})
         self.assertEqual(chain, p)
 
     def test_basic_generate_long(self):
         engine = self.engine
         p = 'if you gaze long into an abyss, the abyss also gazes into you.'
         engine.learn({sentence.Loader: p})
-        chain = engine.generate('an')
+        chain = engine.generate({'word': 'an'})
         self.assertEqual(chain, p)
 
     def test_generate_sentence_clean(self):
@@ -122,13 +122,15 @@ class SentenceTestCase(unittest.TestCase):
         engine.learn({sentence.Loader: 'what is a carrier'})
         self.skip_random(8)
 
-        self.assertEqual(engine.generate('a'), 'what is a carrier')
-        self.assertEqual(engine.generate('a'), 'how is this a problem')
+        self.assertEqual(engine.generate({'word': 'a'}), 'what is a carrier')
+        self.assertEqual(
+            engine.generate({'word': 'a'}), 'how is this a problem')
 
         # generate 100 chains to test that the two learned setences are
         # not actually connected at all (due to terminator).
         # e.g. 'how is this a carrier' ('this a carrier' not a chain)
-        chains = set(engine.generate('a', default='') for i in range(100))
+        chains = set(
+            engine.generate({'word': 'a'}, default='') for i in range(100))
         self.assertTrue(0 < len(chains) <= 2)
 
     def test_generate_terminate(self):
@@ -137,11 +139,12 @@ class SentenceTestCase(unittest.TestCase):
         engine.learn({sentence.Loader: 'the fire will start'})
         self.skip_random(14)
         self.assertEqual(
-            engine.generate('the'), 'the fire will start')
+            engine.generate({'word': 'the'}), 'the fire will start')
         self.assertEqual(
-            engine.generate('the'), 'the fire will start the engine tomorrow')
+            engine.generate({'word': 'the'}),
+            'the fire will start the engine tomorrow')
         self.assertEqual(
-            engine.generate('the'), 'will start the engine tomorrow')
+            engine.generate({'word': 'the'}), 'will start the engine tomorrow')
 
     def test_generate_not_unendingly_circular(self):
         engine = self.engine
@@ -149,8 +152,8 @@ class SentenceTestCase(unittest.TestCase):
         engine.learn({sentence.Loader: p})
         self.skip_random(2)
         self.assertEqual(
-            engine.generate('logic'),
+            engine.generate({'word': 'logic'}),
             'circular logic works because circular logic')
         # I had previously neglected this case, and this turns out to
         # make the above best case again less common.
-        self.assertEqual(engine.generate('logic'), 'circular logic')
+        self.assertEqual(engine.generate({'word': 'logic'}), 'circular logic')

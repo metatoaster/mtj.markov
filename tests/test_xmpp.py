@@ -40,7 +40,7 @@ class XMPPTestCase(unittest.TestCase):
             }
         })
 
-        chain = engine.generate('you')
+        chain = engine.generate({'word': 'you'})
         self.assertEqual(chain, 'how are you doing')
 
         s = self.engine._sessions()
@@ -70,7 +70,7 @@ class XMPPTestCase(unittest.TestCase):
             }
         })
 
-        chain = engine.generate('you')
+        chain = engine.generate({'word': 'you'})
 
         s = self.engine._sessions()
         self.assertEqual(
@@ -119,13 +119,16 @@ class XMPPTestCase(unittest.TestCase):
                     }
                 })
 
-        today = engine.generate('Today')
+        today = engine.generate({'word': 'Today'})
         self.assertEqual(today, 'Today is a bright person.')
         # combining things both users said.
-        chain = engine.generate('bright')
+        chain = engine.generate({'word': 'bright'})
         self.assertEqual(chain, 'Yesterday there was a bright person.')
 
-        # user1_bright = engine.generate('bright', jid='user1@example.com')
+        # user1_bright = engine.generate({
+        #     'word': 'bright',
+        #     'jid': 'user1@example.com',
+        # })
 
         # s = self.engine._sessions()
         # self.assertEqual(
