@@ -126,9 +126,13 @@ class SentenceTestCase(unittest.TestCase):
         self.assertEqual(
             engine.generate({'word': 'a'}), 'how is this a problem')
 
+    def test_generate_sentence_non_intersect_multi(self):
         # generate 100 chains to test that the two learned setences are
         # not actually connected at all (due to terminator).
         # e.g. 'how is this a carrier' ('this a carrier' not a chain)
+        engine = self.engine
+        engine.learn({sentence.Loader: 'how is this a problem'})
+        engine.learn({sentence.Loader: 'what is a carrier'})
         chains = set(
             engine.generate({'word': 'a'}, default='') for i in range(100))
         self.assertTrue(0 < len(chains) <= 2)
