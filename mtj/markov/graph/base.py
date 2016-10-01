@@ -132,8 +132,13 @@ class SqliteStateGraph(base.StateGraph):
     def generate(self, data, default=NotImplemented):
         # XXX different from parent definition.
         try:
-            return self._generate(data)
+            data_ = {}
+            data_.update(data)
+            logger.debug('generate begin')
+            return self._generate(data_)
         except KeyError:
             if default is NotImplemented:
                 raise
             return default
+        finally:
+            logger.debug('generate end')
