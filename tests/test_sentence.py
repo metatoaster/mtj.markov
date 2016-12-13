@@ -20,6 +20,7 @@ class SentenceTestCase(unittest.TestCase):
 
     def tearDown(self):
         graph_sentence.random = self.original_random
+        self.engine.model.metadata.drop_all(self.engine.engine)
 
     def skip_random(self, n=1):
         # For skipping over unfavorable generated numbers.
@@ -100,6 +101,10 @@ class SentenceTestCase(unittest.TestCase):
         chain = engine.generate({'word': 'you'})
         self.assertEqual(chain, 'how are you doing')
         chain = engine.generate({'word': 'doing'})
+        self.assertEqual(chain, 'how are you doing')
+
+        # also the empty case
+        chain = engine.generate({})
         self.assertEqual(chain, 'how are you doing')
 
     def test_basic_generate_bad(self):

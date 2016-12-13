@@ -54,6 +54,20 @@ class SentenceGraph(base.SqliteStateGraph):
         # self.Sentence = self.classes['Sentence']
         self.Word = self.classes['Word']
 
+    def pick_word(self, session=None):
+        if session is None:  # pragma: no cover
+            session = self._sessions()
+
+        query = lambda p: session.query(p).select_from(self.Word).filter(
+            self.Word.word != '')
+        count = query(func.count()).one()[0]
+
+        if not count:
+            raise KeyError('no words in graph')
+
+        return self.normalize(
+            query(self.Word.word).offset(int(random() * count)).first()[0])
+
     def pick_entry_point(self, data, session):
         """
         Return a state_transition based on arguments.  Return value must
@@ -64,10 +78,12 @@ class SentenceGraph(base.SqliteStateGraph):
         # TODO verify that data is a word
         word = data.get('word')
 
-        # XXX note pick_state_transition
+        if not word:
+            word = self.pick_word(session)
+
         query = lambda p: session.query(p).select_from(
             self.IndexWordFragment).join(self.Word).filter(
-            self.Word.word == self.normalize(word))
+                self.Word.word == self.normalize(word))
 
         count = query(func.count()).one()[0]
 
