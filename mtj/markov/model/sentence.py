@@ -47,14 +47,65 @@ class Word(base.State):
         self.word = word
 
 
-class Fragment(base.StateTransition):
+class FragmentBase(object):
+    """
+    Core of the fragment.
+    """
+
+    id = Column(Integer(), primary_key=True, nullable=False)
+
+    @declared_attr
+    def sentence_id(cls):
+        return Column(Integer(), nullable=False)
+
+    @declared_attr
+    def l_word_id(cls):
+        return Column(Integer(), nullable=False)
+
+    @declared_attr
+    def word_id(cls):
+        return Column(Integer(), nullable=False)
+
+    @declared_attr
+    def r_word_id(cls):
+        return Column(Integer(), nullable=False)
+
+    # This is deferred to IndexWordFragment
+    # idx_word = Index('word_id', 'word_id')
+    @declared_attr
+    def idx_l_word(cls):
+        return Index('idx_l_word', cls.word_id, cls.r_word_id)
+
+    @declared_attr
+    def idx_r_word(cls):
+        return Index('idx_r_word', cls.l_word_id, cls.word_id)
+
+    # TODO figure out how to get all fragments associated with this
+    # fragment at either directions.
+
+    def __init__(self, sentence, l_word, word, r_word):
+        self.sentence = sentence
+        self.l_word = l_word
+        self.word = word
+        self.r_word = r_word
+
+    def list_states(self):
+        # return the raw identifiers.
+        return (
+            self.l_word_id,
+            self.word_id,
+            self.r_word_id,
+        )
+
+
+class Fragment(FragmentBase, base.StateTransition):
     """
     A fragment of a sentence, 3 word states = 2-order markov.
     """
 
     __tablename__ = 'fragment'
 
-    id = Column(Integer(), primary_key=True, nullable=False)
+    # XXX figure out how to only declare the ForeignKeys here
     @declared_attr
     def sentence_id(cls):
         return Column(Integer(), ForeignKey('sentence.id'), nullable=False)
@@ -86,34 +137,6 @@ class Fragment(base.StateTransition):
     @declared_attr
     def r_word(cls):
         return relationship('Word', foreign_keys=cls.r_word_id)
-
-
-    # This is deferred to IndexWordFragment
-    # idx_word = Index('word_id', 'word_id')
-    @declared_attr
-    def idx_l_word(cls):
-        return Index('idx_l_word', cls.word_id, cls.r_word_id)
-
-    @declared_attr
-    def idx_r_word(cls):
-        return Index('idx_r_word', cls.l_word_id, cls.word_id)
-
-    # TODO figure out how to get all fragments associated with this
-    # fragment at either directions.
-
-    def __init__(self, sentence, l_word, word, r_word):
-        self.sentence = sentence
-        self.l_word = l_word
-        self.word = word
-        self.r_word = r_word
-
-    def list_states(self):
-        # return the raw identifiers.
-        return (
-            self.l_word_id,
-            self.word_id,
-            self.r_word_id,
-        )
 
 
 class IndexWordFragment(base.Index):

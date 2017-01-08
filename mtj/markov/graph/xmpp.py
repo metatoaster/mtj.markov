@@ -1,9 +1,14 @@
 from logging import getLogger
 from random import random
 from sqlalchemy import func
+from sqlalchemy import text
+from sqlalchemy import Index
+from sqlalchemy import MetaData
+from sqlalchemy import Table
 
 from .sentence import SentenceGraph
 from ..model import xmpp
+from ..model.sentence import FragmentBase
 
 logger = getLogger(__name__)
 
@@ -27,6 +32,12 @@ class XMPPGraph(SentenceGraph):
         self.Nickname = self.classes['Nickname']
         self.XMPPLog = self.classes['XMPPLog']
 
+        # construct ORM temporary classes after real stuff are done
+        self.FragmentTemp = type('FragmentTemp', (FragmentBase, self.model), {
+            '__tablename__': 'fragment_xmpp_temp',
+            '__table_args__': {'prefixes': ['TEMP']},
+        })
+
     def pick_entry_point(self, data, session):
         """
         Return a state_transition based on arguments.  Return value must
@@ -41,44 +52,31 @@ class XMPPGraph(SentenceGraph):
             # for mapping nickname + muc to jid
             return super(XMPPGraph, self).pick_entry_point(data, session)
 
-        # XXX ignoring word
-        query = lambda p: session.query(p).select_from(
+        insq = session.query(self.Fragment).select_from(
             self.Fragment).join(
                 self.XMPPLog,
                 self.XMPPLog.sentence_id == self.Fragment.sentence_id
             ).join(self.JID).filter(self.JID.value == jid)
 
-        count = query(func.count()).one()[0]
+        # create temporary table
+        # checkfirst as some implementations keep them around...
+        self.FragmentTemp.__table__.create(
+            bind=session.connection(), checkfirst=True)
+
+        # directly poking at the table.
+        # TODO figure out ORM equivalent...
+        session.execute(self.FragmentTemp.__table__.insert().from_select(
+            self.Fragment.__table__.columns, insq))
+
+        count = session.query(self.FragmentTemp).count()
 
         if not count:
             raise KeyError('failed to find fragments for jid <%s>', jid)
 
-        fragment = query(self.Fragment).offset(
+        fragment = session.query(self.FragmentTemp).offset(
             int(random() * count)).first()
         logger.debug('picked fragment_id %d', fragment.id)
+
+        # bind the Fragment table reference to the session object
+        session.Fragment = self.FragmentTemp
         return fragment
-
-    def _query_chain(self, data, fragment, s_word_id, t_word_id, session):
-        jid = data.get('jid')
-        if not jid:
-            # See pick_entry_point
-            return super(XMPPGraph, self)._query_chain(
-                data, fragment, s_word_id, t_word_id, session)
-
-        # self.Fragment.word_id points to a joiner, skip the second cond
-        # which is the source restriction, so that words like "and" can
-        # be treated as a standalone 1-order word.
-
-        # ditto, the linkage is here, too.
-        query = lambda p: session.query(p).select_from(self.Fragment).join(
-                self.XMPPLog,
-                self.XMPPLog.sentence_id == self.Fragment.sentence_id
-            ).join(self.JID).filter(
-                (self.JID.value == jid) &
-                (self.Fragment.word_id == getattr(fragment, t_word_id)) &
-                (getattr(self.Fragment, s_word_id) == fragment.word_id)
-            )
-        count = query(func.count()).one()[0]
-        if not count:
-            return None
-        return query(self.Fragment).offset(int(random() * count)).first()

@@ -119,15 +119,18 @@ class SqliteStateGraph(base.StateGraph):
     def _generate(self, data):
         # XXX different from parent definition.
         session = self._sessions()
-        entry_point = self.pick_entry_point(data, session)
+        try:
+            entry_point = self.pick_entry_point(data, session)
 
-        lhs = self.follow_chain(data, entry_point, 'rl', session)
-        c = list(entry_point.list_states())
-        rhs = self.follow_chain(data, entry_point, 'lr', session)
+            lhs = self.follow_chain(data, entry_point, 'rl', session)
+            c = list(entry_point.list_states())
+            rhs = self.follow_chain(data, entry_point, 'lr', session)
 
-        state_ids = lhs + c + rhs
-        states = self.lookup_states_by_ids(state_ids, session)
-        return (states[state_id] for state_id in state_ids)
+            state_ids = lhs + c + rhs
+            states = self.lookup_states_by_ids(state_ids, session)
+            return (states[state_id] for state_id in state_ids)
+        finally:
+            session.rollback()
 
     def generate(self, data, default=NotImplemented):
         # XXX different from parent definition.

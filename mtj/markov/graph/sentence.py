@@ -99,13 +99,15 @@ class SentenceGraph(base.SqliteStateGraph):
         # which is the source restriction, so that words like "and" can
         # be treated as a standalone 1-order word.
 
-        query = lambda p: session.query(p).select_from(self.Fragment).filter(
-            (self.Fragment.word_id == getattr(fragment, t_word_id)) &
-            (getattr(self.Fragment, s_word_id) == fragment.word_id))
+        Fragment = getattr(session, 'Fragment', self.Fragment)
+
+        query = lambda p: session.query(p).select_from(Fragment).filter(
+            (Fragment.word_id == getattr(fragment, t_word_id)) &
+            (getattr(Fragment, s_word_id) == fragment.word_id))
         count = query(func.count()).one()[0]
         if not count:
             return None
-        return query(self.Fragment).offset(int(random() * count)).first()
+        return query(Fragment).offset(int(random() * count)).first()
 
     def follow_chain(self, data, fragment, direction, session=None):
         """
