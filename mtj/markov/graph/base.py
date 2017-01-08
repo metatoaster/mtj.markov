@@ -18,6 +18,17 @@ from ..model import base
 logger = getLogger(__name__)
 
 
+class Session(object):
+
+    def __init__(self, session):
+        self.session = session
+
+    def __getattr__(self, name):
+        if hasattr(self.session, name):
+            return getattr(self.session, name)
+        return super(Session, self).__getattr__(name)
+
+
 class SqliteStateGraph(base.StateGraph):
     """
     Generic sqlite state graph implementation
@@ -59,7 +70,10 @@ class SqliteStateGraph(base.StateGraph):
                     self.loaders.append(basecls(self))
 
         self.model.metadata.create_all(self.engine)
-        self._sessions = scoped_session(sessionmaker(bind=self.engine))
+        self._Sessions = scoped_session(sessionmaker(bind=self.engine))
+
+    def _sessions(self):
+        return Session(self._Sessions())
 
     def learn(self, table):
         try:

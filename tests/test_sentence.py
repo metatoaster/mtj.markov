@@ -72,7 +72,7 @@ class SentenceTestCase(unittest.TestCase):
     def test_learn_failure_logic(self):
         engine = self.engine
         # force a programming error of some kind.
-        del self.engine._sessions
+        del self.engine._Sessions
         engine.learn({sentence.Loader: 'this cannot be learned.'})
 
     def test_learn_restricted(self):
